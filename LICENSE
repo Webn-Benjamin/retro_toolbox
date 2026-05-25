@@ -1,0 +1,35 @@
+Source Available License — Retro Toolbox
+Copyright (c) 2024-2025 Steal
+
+Permission is hereby granted to any person obtaining a copy of this software
+and associated source files (the "Software") to:
+
+  1. View and study the source code for personal or educational purposes.
+  2. Fork the repository for personal, non-commercial use.
+  3. Submit contributions (pull requests) to the original repository.
+
+The following restrictions apply:
+
+  - You may NOT redistribute, sell, sublicense or publish modified or
+    unmodified copies of the Software, in source or binary form, without
+    explicit written permission from the author.
+  - You may NOT use the Software or any part of it for commercial purposes.
+  - You may NOT use the name "Retro Toolbox", its logo or branding to
+    promote derivative products.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR
+OTHER LIABILITY ARISING FROM THE USE OF THIS SOFTWARE.
+
+-------------------------------------------------------------------------------
+
+THIRD-PARTY ASSETS NOTICE
+
+The spell images located in the spells/ directory are extracted from the game
+Dofus Rétro and are the exclusive intellectual property of Ankama Games SAS.
+They are included solely for informational and utility purposes, without any
+commercial intent.
+
+Dofus, Dofus Rétro, and all related assets are trademarks of Ankama Games SAS.
+Retro Toolbox is an independent project and is NOT affiliated with, endorsed
+by, or sponsored by Ankama Games SAS.
