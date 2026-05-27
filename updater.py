@@ -2,8 +2,8 @@
 
 import threading, urllib.request, json, webbrowser
 
-CURRENT_VERSION = "1.0.0"
-VERSION_URL     = "https://monsite.com/version.json"  # ← à modifier
+CURRENT_VERSION = "1.0.6"
+VERSION_URL     = "https://retro-toolbox.fr/version.json"  # ← à modifier
 
 
 def check_update_qt(parent=None):

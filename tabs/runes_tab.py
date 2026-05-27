@@ -4,7 +4,8 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QFrame, QGridLayout, QComboBox, QScrollArea
 )
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer, QPoint
+from PySide6.QtGui import QScreen
 import theme
 
 T = theme
@@ -226,12 +227,110 @@ class PuitPanel(QFrame):
             if item and item.widget(): item.widget().deleteLater()
 
 
+# ── PuitWindow — fenêtre flottante détachée ──────────────
+
+class PuitWindow(QFrame):
+    """Fenêtre flottante contenant le calculateur de puit.
+    Déplaçable par l'utilisateur, sans barre de titre Windows.
+    """
+
+    def __init__(self, puit_panel: 'PuitPanel', on_reattach, parent=None):
+        super().__init__(parent, Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
+        self._puit_panel = puit_panel
+        self._on_reattach = on_reattach
+        self._drag_pos = None
+        self.setObjectName("puit_window")
+        self.setStyleSheet(
+            f"QFrame#puit_window{{background:{T.BG};border:2px solid {T.ORANGE};"
+            f"border-radius:6px;}}")
+        self.setFixedWidth(340)
+        self._build()
+
+    def _build(self):
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(0)
+
+        # Barre de titre custom
+        titlebar = QFrame()
+        titlebar.setStyleSheet(
+            f"QFrame{{background:{T.BG_DARK};border-bottom:1px solid {T.BORDER};"
+            f"border-radius:4px 4px 0 0;}}")
+        titlebar.setFixedHeight(34)
+        tb_lay = QHBoxLayout(titlebar)
+        tb_lay.setContentsMargins(10, 0, 8, 0); tb_lay.setSpacing(6)
+
+        icon = QLabel("🧮")
+        icon.setStyleSheet("background:transparent;font-size:12pt;")
+        title = QLabel("Calculateur de Puit")
+        title.setStyleSheet(
+            f"background:transparent;color:{T.TEXT};font-size:9pt;font-weight:bold;")
+
+        btn_reattach = QPushButton("⊙ Réintégrer")
+        btn_reattach.setStyleSheet(
+            f"QPushButton{{background:transparent;color:{T.HINT};border:none;"
+            f"font-size:8pt;padding:2px 6px;}}"
+            f"QPushButton:hover{{color:{T.ORANGE};}}")
+        btn_reattach.clicked.connect(self._reattach)
+
+        btn_close = QPushButton("✕")
+        btn_close.setFixedSize(26, 26)
+        btn_close.setObjectName("puit_close")
+        # Forcer la couleur explicitement — le QSS parent peut écraser
+        btn_close.setStyleSheet(
+            "QPushButton#puit_close{"
+            f"background:#8c4038;color:white;border:none;"
+            f"font-size:11pt;font-weight:bold;border-radius:4px;}}"
+            "QPushButton#puit_close:hover{"
+            f"background:#9e4840;color:white;}}")
+        btn_close.clicked.connect(self._reattach)
+
+        tb_lay.addWidget(icon)
+        tb_lay.addWidget(title, 1)
+        tb_lay.addWidget(btn_reattach)
+        tb_lay.addWidget(btn_close)
+        lay.addWidget(titlebar)
+        lay.addWidget(self._puit_panel)
+
+    def _reattach(self):
+        self._on_reattach()
+
+    # ── Drag pour déplacer la fenêtre ─────────────────────
+    def mousePressEvent(self, e):
+        if e.button() == Qt.MouseButton.LeftButton:
+            self._drag_pos = e.globalPosition().toPoint() - self.frameGeometry().topLeft()
+
+    def mouseMoveEvent(self, e):
+        if self._drag_pos and e.buttons() == Qt.MouseButton.LeftButton:
+            self.move(e.globalPosition().toPoint() - self._drag_pos)
+
+    def mouseReleaseEvent(self, e):
+        self._drag_pos = None
+
+
 # ── RunesTab ───────────────────────────────────────────────
 
 class RunesTab(QWidget):
+    def sizeHint(self):
+        lay = self.layout()
+        if not lay: return super().sizeHint()
+        h = lay.contentsMargins().top() + lay.contentsMargins().bottom()
+        for i in range(lay.count()):
+            item = lay.itemAt(i)
+            if not item: continue
+            w = item.widget()
+            if w and w.isVisible():
+                h += w.sizeHint().height() + lay.spacing()
+            elif item.layout():
+                h += item.layout().sizeHint().height() + lay.spacing()
+        from PySide6.QtCore import QSize
+        return QSize(self.width(), h)
+
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._puit_visible = False
+        self._puit_visible  = False
+        self._puit_detached = False
+        self._puit_window   = None
         self._build()
 
     def _build(self):
@@ -247,7 +346,19 @@ class RunesTab(QWidget):
             f"padding:6px 12px;font-weight:bold;font-size:9pt;}}"
             f"QPushButton:hover{{background:{T.ORANGE_L};}}")
         self._btn_puit.clicked.connect(self._toggle_puit)
-        tr.addWidget(title); tr.addStretch(); tr.addWidget(self._btn_puit)
+
+        self._btn_detach = QPushButton("⎋")
+        self._btn_detach.setToolTip("Détacher le calculateur")
+        self._btn_detach.setFixedSize(32, 32)
+        self._btn_detach.setStyleSheet(
+            f"QPushButton{{background:{T.BG_DARK};color:{T.HINT};"
+            f"border:1px solid {T.BORDER};border-radius:3px;font-size:11pt;}}"
+            f"QPushButton:hover{{background:{T.ORANGE};color:white;border-color:{T.ORANGE};}}")
+        self._btn_detach.clicked.connect(self._detach_puit)
+        self._btn_detach.hide()  # visible seulement quand puit ouvert
+
+        tr.addWidget(title); tr.addStretch()
+        tr.addWidget(self._btn_puit); tr.addWidget(self._btn_detach)
         lay.addLayout(tr)
 
         # Panneau puit inline (caché par défaut)
@@ -285,11 +396,24 @@ class RunesTab(QWidget):
 
         grid.setColumnStretch(0, 2)
         for c in range(1,5): grid.setColumnStretch(c, 1)
+        self._table_card = card
         lay.addWidget(card)
 
     def _toggle_puit(self):
+        if self._puit_detached:
+            self._reattach_puit()
+            return
         self._puit_visible = not self._puit_visible
         self._puit_panel.setVisible(self._puit_visible)
+        self._btn_detach.setVisible(self._puit_visible)
+        from PySide6.QtWidgets import QSizePolicy
+        sp = self._puit_panel.sizePolicy()
+        if self._puit_visible:
+            sp.setVerticalPolicy(QSizePolicy.Policy.Preferred)
+        else:
+            sp.setVerticalPolicy(QSizePolicy.Policy.Fixed)
+        self._puit_panel.setSizePolicy(sp)
+        self._puit_panel.setMaximumHeight(16777215 if self._puit_visible else 0)
         self._btn_puit.setText("✕  Fermer Puit" if self._puit_visible else "🧮  Calculer PUIT")
         col = '#8c4038' if self._puit_visible else T.ORANGE
         hov = '#9e4840' if self._puit_visible else T.ORANGE_L
@@ -299,7 +423,83 @@ class RunesTab(QWidget):
             f"QPushButton:hover{{background:{hov};}}")
         self._apply_height()
 
+    def _detach_puit(self):
+        """Extrait le calculateur dans une fenêtre flottante."""
+        if self._puit_detached: return
+
+        # Retirer le panel du layout (setParent None le détache sans détruire)
+        lay = self.layout()
+        lay.removeWidget(self._puit_panel)
+        self._puit_panel.setParent(None)
+
+        # Créer la fenêtre flottante — on lui passe le panel comme enfant direct
+        self._puit_window = PuitWindow(self._puit_panel, self._reattach_puit)
+
+        # Positionner à côté de la fenêtre principale
+        main = self.window()
+        if main:
+            geo = main.geometry()
+            self._puit_window.move(geo.right() + 10, geo.top())
+        else:
+            self._puit_window.move(200, 200)
+
+        self._puit_window.adjustSize()
+        self._puit_window.show()
+        self._puit_window.raise_()
+
+        self._puit_detached = True
+        self._puit_visible  = False
+        self._btn_detach.hide()
+        self._btn_puit.setText("✕  Fermer Puit")
+        self._btn_puit.setStyleSheet(
+            f"QPushButton{{background:#8c4038;color:white;border:none;border-radius:3px;"
+            f"padding:6px 12px;font-weight:bold;font-size:9pt;}}"
+            f"QPushButton:hover{{background:#9e4840;}}")
+        self._apply_height()
+
+    def _reattach_puit(self):
+        """Réintègre le calculateur dans l'onglet."""
+        if not self._puit_detached: return
+
+        # Détacher la fenêtre flottante SANS détruire le panel
+        if self._puit_window:
+            # Retirer le panel de la fenêtre avant de la fermer
+            try:
+                self._puit_panel.setParent(None)
+            except RuntimeError:
+                # Panel déjà détruit — en recréer un
+                self._puit_panel = PuitPanel()
+            self._puit_window.hide()
+            self._puit_window.deleteLater()
+            self._puit_window = None
+
+        # Remettre le panel dans le layout inline
+        lay = self.layout()
+        self._puit_panel.setParent(self)
+        lay.insertWidget(1, self._puit_panel)
+        self._puit_panel.show()
+
+        self._puit_detached = False
+        self._puit_visible  = True
+        self._btn_detach.setVisible(True)
+        self._btn_puit.setText("✕  Fermer Puit")
+        self._btn_puit.setStyleSheet(
+            f"QPushButton{{background:#8c4038;color:white;border:none;border-radius:3px;"
+            f"padding:6px 12px;font-weight:bold;font-size:9pt;}}"
+            f"QPushButton:hover{{background:#9e4840;}}")
+        self._apply_height()
+
     def _apply_height(self):
-        root = self.window()
-        if not root or not hasattr(root, '_adjust_height'): return
-        root._adjust_height()
+        from PySide6.QtWidgets import QApplication
+        from PySide6.QtCore import QTimer
+        def do():
+            w = self
+            while w:
+                w.updateGeometry()
+                w = w.parentWidget()
+            root = self.window()
+            if not root: return
+            root.setMinimumHeight(0)
+            root.setMaximumHeight(16777215)
+            root.adjustSize()
+        QTimer.singleShot(0, do)

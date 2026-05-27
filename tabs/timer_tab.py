@@ -162,6 +162,8 @@ class GroupCard(QFrame):
 class MapPanel(QWidget):
     def __init__(self, map_name, map_data, callbacks, parent=None):
         super().__init__(parent)
+        from PySide6.QtWidgets import QSizePolicy
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self._map_name  = map_name
         self._callbacks = callbacks
         self._cards     = {}
@@ -184,7 +186,6 @@ class MapPanel(QWidget):
             card.reset_clicked.connect(self._callbacks['on_reset_group'])
             lay.addWidget(card)
             self._cards[group_name] = card
-        lay.addStretch()
 
     def update_timers(self, map_data):
         for gname, card in self._cards.items():
@@ -195,6 +196,8 @@ class MapPanel(QWidget):
 class TimerTab(QWidget):
     def __init__(self, maps, callbacks, parent=None):
         super().__init__(parent)
+        from PySide6.QtWidgets import QSizePolicy
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self._maps        = maps
         self._callbacks   = callbacks
         self._panels      = {}
@@ -210,16 +213,21 @@ class TimerTab(QWidget):
         lay.setContentsMargins(8, 8, 8, 8)
         lay.setSpacing(6)
 
-        # Stats
+        # Stats — hauteur fixe compacte
         stats = QFrame(); stats.setObjectName("card")
-        sl = QVBoxLayout(stats); sl.setContentsMargins(12, 8, 12, 8); sl.setSpacing(4)
+        from PySide6.QtWidgets import QSizePolicy as SP
+        stats.setSizePolicy(SP.Policy.Preferred, SP.Policy.Fixed)
+        sl = QHBoxLayout(stats); sl.setContentsMargins(12, 8, 12, 8); sl.setSpacing(16)
         self._kill_lbl = QLabel("Kill  —")
         self._rare_lbl = QLabel("Rare  —")
+        sep_v = QFrame(); sep_v.setFrameShape(QFrame.Shape.VLine)
+        sep_v.setStyleSheet(f"color:{T.BORDER};")
         for l in (self._kill_lbl, self._rare_lbl):
             l.setStyleSheet(f"color:{T.SUBTEXT};font-size:9pt;background:transparent;")
         sl.addWidget(self._kill_lbl)
-        sl.addWidget(theme.sep(stats))
+        sl.addWidget(sep_v)
         sl.addWidget(self._rare_lbl)
+        sl.addStretch()
         lay.addWidget(stats)
 
         # Barre maps
@@ -288,6 +296,8 @@ class TimerTab(QWidget):
 
         # Panels
         self._panels_widget = QWidget()
+        from PySide6.QtWidgets import QSizePolicy
+        self._panels_widget.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
         self._panels_lay = QVBoxLayout(self._panels_widget)
         self._panels_lay.setContentsMargins(0, 0, 0, 0)
         for map_name, map_data in self._maps.items():
@@ -308,13 +318,20 @@ class TimerTab(QWidget):
         self._map_btns[map_name] = btn
 
     def _switch_map(self, name):
+        root = self.window()
+        if root: root.setUpdatesEnabled(False)
         self._current_map = name
         for n, p in self._panels.items():
             p.setVisible(n == name)
+            if n == name:
+                # Fixer la hauteur du panel_widget au panel actif
+                self._panels_widget.setFixedHeight(p.sizeHint().height())
         for n, b in self._map_btns.items():
             active = (n == name)
             b.setObjectName("btn_orange" if active else "")
             b.style().unpolish(b); b.style().polish(b)
+        self._fit()
+        if root: root.setUpdatesEnabled(True)
 
     def _open_rename(self, name):
         self._renaming = name
@@ -337,9 +354,15 @@ class TimerTab(QWidget):
         self._fit()
 
     def _fit(self):
+        w = self
+        while w:
+            w.updateGeometry()
+            w = w.parentWidget()
         root = self.window()
-        if not root or not hasattr(root, '_adjust_height'): return
-        root._adjust_height()
+        if not root: return
+        root.setMinimumHeight(0)
+        root.setMaximumHeight(16777215)
+        root.adjustSize()
 
     def _on_add_map(self):
         cb = self._callbacks.get('on_add_map')
@@ -360,6 +383,7 @@ class TimerTab(QWidget):
     def update_stats(self, kill_text, rare_text):
         self._kill_lbl.setText(kill_text)
         self._rare_lbl.setText(rare_text)
+        self._fit()
 
     def add_map(self, map_name, map_data):
         """Appelé depuis main_window quand une map est ajoutée."""

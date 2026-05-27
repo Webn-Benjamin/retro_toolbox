@@ -305,6 +305,15 @@ class EconomePanel(QWidget):
     def _toggle_picker(self):
         self._picker_visible = not self._picker_visible
         self._picker.setVisible(self._picker_visible)
+        # Quand caché, le widget ne doit plus prendre de place
+        from PySide6.QtWidgets import QSizePolicy
+        sp = self._picker.sizePolicy()
+        if self._picker_visible:
+            sp.setVerticalPolicy(QSizePolicy.Policy.Preferred)
+        else:
+            sp.setVerticalPolicy(QSizePolicy.Policy.Fixed)
+        self._picker.setSizePolicy(sp)
+        self._picker.setMaximumHeight(16777215 if self._picker_visible else 0)
         self._btn_add.setText("✕  Fermer" if self._picker_visible else "＋  Ajouter un personnage")
         self._btn_add.setStyleSheet(
             f"QPushButton{{background:{'#8c4038' if self._picker_visible else T.GREEN};"
@@ -333,9 +342,20 @@ class EconomePanel(QWidget):
         self._fit()
 
     def _fit(self):
-        root = self.window()
-        if not root or not hasattr(root, '_adjust_height'): return
-        root._adjust_height()
+        from PySide6.QtWidgets import QApplication
+        from PySide6.QtCore import QTimer
+        def do():
+            # Remonter la chaîne updateGeometry() pour propager le changement
+            w = self
+            while w:
+                w.updateGeometry()
+                w = w.parentWidget()
+            root = self.window()
+            if not root: return
+            root.setMinimumHeight(0)
+            root.setMaximumHeight(16777215)
+            root.adjustSize()
+        QTimer.singleShot(0, do)
 
     def _update_nav(self):
         if not self._profiles: return
@@ -433,6 +453,19 @@ class PartagePanel(QWidget):
 # ── ChallengesTab ──────────────────────────────────────────
 
 class ChallengesTab(QWidget):
+    def sizeHint(self):
+        # Calculer la hauteur réelle des widgets visibles
+        lay = self.layout()
+        if not lay: return super().sizeHint()
+        h = 0
+        for i in range(lay.count()):
+            item = lay.itemAt(i)
+            if item and item.widget() and item.widget().isVisible():
+                h += item.widget().sizeHint().height() + lay.spacing()
+        m = lay.contentsMargins()
+        return __import__('PySide6.QtCore', fromlist=['QSize']).QSize(
+            self.width(), h + m.top() + m.bottom())
+
     def __init__(self, parent=None):
         super().__init__(parent); self._build()
 

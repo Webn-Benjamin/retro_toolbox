@@ -12,6 +12,8 @@ class SettingsTab(QWidget):
     def __init__(self, data_file_path, on_change_folder, parent=None):
         super().__init__(parent)
         self._on_change_folder = on_change_folder
+        from PySide6.QtWidgets import QSizePolicy
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self._build(data_file_path)
 
     def _build(self, data_file_path):
@@ -25,9 +27,8 @@ class SettingsTab(QWidget):
         lbl = QLabel("DOSSIER DES DONNÉES")
         lbl.setStyleSheet(f"color:{theme.HINT};font-size:7pt;font-weight:bold;letter-spacing:1px;")
         c1.addWidget(lbl)
-        c1.addWidget(theme.sep(card1))
         self._path_lbl = QLabel(data_file_path)
-        self._path_lbl.setStyleSheet(f"color:{theme.HINT};font-size:8pt;")
+        self._path_lbl.setStyleSheet(f"color:{theme.ORANGE};font-size:8pt;")
         self._path_lbl.setWordWrap(True)
         c1.addWidget(self._path_lbl)
         btn = QPushButton("Changer le dossier"); btn.setObjectName("btn_orange")
@@ -41,7 +42,6 @@ class SettingsTab(QWidget):
         lbl2 = QLabel("ALERTE TIMER")
         lbl2.setStyleSheet(f"color:{theme.HINT};font-size:7pt;font-weight:bold;letter-spacing:1px;")
         c2.addWidget(lbl2)
-        c2.addWidget(theme.sep(card2))
         hint = QLabel("Le timer passe en rouge après ce délai sans kill ni rare.")
         hint.setStyleSheet(f"color:{theme.HINT};font-size:8pt;")
         hint.setWordWrap(True)
@@ -59,7 +59,14 @@ class SettingsTab(QWidget):
         row.addWidget(lbl_s); row.addWidget(self._slider); row.addWidget(self._val_lbl)
         c2.addLayout(row)
         lay.addWidget(card2)
-        lay.addStretch()
+
+        # Fixer la hauteur exacte après construction
+        from PySide6.QtWidgets import QApplication
+        QApplication.processEvents()
+        total = (lay.contentsMargins().top() + lay.contentsMargins().bottom()
+                 + card1.sizeHint().height() + card2.sizeHint().height()
+                 + lay.spacing())
+        self.setFixedHeight(total)
 
     def _on_slider(self, val):
         self._val_lbl.setText(f"{val} min")
