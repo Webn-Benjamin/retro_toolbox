@@ -1,0 +1,37 @@
+# ── Build PyInstaller ──────────────────────────────────────
+dist/
+build/
+*.spec
+
+# ── Build Nuitka ───────────────────────────────────────────
+main.build/
+main.dist/
+main.onefile-build/
+
+# ── Exécutables ────────────────────────────────────────────
+*.exe
+
+# ── Python ─────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+
+# ── Données utilisateur ────────────────────────────────────
+data.json
+config.json
+dofus_timers.json
+*.json
+
+# ── IDE ────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*~
+
+# ── OS ─────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
