@@ -226,9 +226,10 @@ class ClassPickerPanel(QFrame):
 
     def _confirm(self):
         pseudo = self._pseudo.text().strip() or CLASS_COLORS[self._cls_key]['name']
+        cls_key = self._cls_key  # sauvegarder avant reset
         self._pseudo.clear()
-        self._cls_btns['cra'].setChecked(True); self._cls_key = 'cra'
-        self.confirmed.emit(pseudo, self._cls_key)
+        self.confirmed.emit(pseudo, cls_key)  # émettre avec la vraie classe
+        self._cls_btns['cra'].setChecked(True); self._cls_key = 'cra'  # reset après
 
 
 # ── EconomePanel ───────────────────────────────────────────

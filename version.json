@@ -1,5 +1,5 @@
 {
-  "version": "1.0.6",
+  "version": "1.0.7",
   "url": "https://retro-toolbox.fr/retro_toolbox.exe",
-  "notes": "-corrections de bugs, -calculateur de puit détachable, -ajout d'un todo list"
+  "notes": "correction d'un  problème lié au lancement pour certains utilisateurs qui faisait crash l'app - correction du challenge économe pour choisir les classes"
 }

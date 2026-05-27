@@ -2,7 +2,7 @@
 
 import threading, urllib.request, json, webbrowser
 
-CURRENT_VERSION = "1.0.6"
+CURRENT_VERSION = "1.0.7"
 VERSION_URL     = "https://retro-toolbox.fr/version.json"  # ← à modifier
 
 
