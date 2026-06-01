@@ -28,6 +28,8 @@ from tabs.runes_tab      import RunesTab
 from tabs.settings_tab   import SettingsTab
 from tabs.about_tab      import AboutTab
 from tabs.todo_tab       import TodoTab
+from tabs.overlay_tab    import OverlayTab
+from tabs.dashboard_tab  import DashboardTab
 
 
 class NavButton(QPushButton):
@@ -206,6 +208,85 @@ class WelcomeDialog(QWidget):
 
 
 class MainWindow(QMainWindow):
+    def closeEvent(self, e):
+        pos = self.pos()
+        model.save_config({"window_x": pos.x(), "window_y": pos.y()})
+        super().closeEvent(e)
+
+    def _show_update(self):
+        from PySide6.QtWidgets import (
+            QDialog, QVBoxLayout, QLabel, QProgressBar,
+            QPushButton, QHBoxLayout)
+        import threading
+
+        latest, url, notes = self._update_info
+
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Mise à jour disponible")
+        dlg.setFixedWidth(340)
+        dlg.setStyleSheet(f"QDialog{{background:{theme.BG};}}")
+        lay = QVBoxLayout(dlg)
+        lay.setContentsMargins(18,16,18,16); lay.setSpacing(10)
+
+        def lbl(text, color=theme.TEXT, size="9pt", bold=False, italic=False):
+            l = QLabel(text)
+            ss = f"background:transparent;font-size:{size};"
+            if color:  ss += f"color:{color};"
+            if bold:   ss += "font-weight:bold;"
+            if italic: ss += "font-style:italic;"
+            l.setStyleSheet(ss)
+            return l
+
+        lay.addWidget(lbl(f"🎮 Version {latest} disponible !", theme.TEXT, "10pt", bold=True))
+        if notes:
+            n = lbl(notes, theme.SUBTEXT, "8.5pt", italic=True)
+            n.setWordWrap(True); lay.addWidget(n)
+
+        bar = QProgressBar()
+        bar.setRange(0,100); bar.setValue(0); bar.setFixedHeight(16)
+        bar.setStyleSheet(
+            f"QProgressBar{{background:{theme.BG_DARK};border:none;}}"
+            f"QProgressBar::chunk{{background:{theme.ORANGE};}}")
+        bar.setVisible(False); lay.addWidget(bar)
+
+        status = lbl("", theme.HINT, "8pt", italic=True)
+        lay.addWidget(status)
+
+        btn_row = QHBoxLayout(); btn_row.setSpacing(6)
+        btn_update = QPushButton("⬇  Mettre à jour et redémarrer")
+        btn_update.setStyleSheet(
+            f"QPushButton{{background:{theme.ORANGE};color:white;border:none;"
+            f"padding:7px 14px;font-weight:bold;font-size:9pt;}}"
+            f"QPushButton:hover{{background:{theme.ORANGE_L};}}")
+        btn_skip = QPushButton("Plus tard")
+        btn_skip.setStyleSheet(
+            f"QPushButton{{background:{theme.BG_DARK};color:{theme.SUBTEXT};"
+            f"border:1px solid {theme.BORDER};padding:7px 12px;"
+            f"font-size:8.5pt;}}")
+        btn_row.addWidget(btn_update); btn_row.addWidget(btn_skip)
+        lay.addLayout(btn_row)
+
+        def start_dl():
+            btn_update.setEnabled(False); btn_skip.setEnabled(False)
+            bar.setVisible(True); status.setText("Téléchargement en cours…")
+            def run():
+                try:
+                    from updater import download_and_restart
+                    download_and_restart(url, latest,
+                        on_progress=lambda p: bar.setValue(int(p * 100)))
+                    from PySide6.QtCore import QTimer
+                    QTimer.singleShot(0, lambda: status.setText("✅ Redémarrage…"))
+                except Exception as ex:
+                    from PySide6.QtCore import QTimer
+                    QTimer.singleShot(0, lambda: (
+                        status.setText(f"❌ Erreur : {ex}"),
+                        btn_skip.setEnabled(True)
+                    ))
+            threading.Thread(target=run, daemon=True).start()
+
+        btn_update.clicked.connect(start_dl)
+        btn_skip.clicked.connect(dlg.reject)
+        dlg.exec()
 
     WIDTH = 350
 
@@ -305,8 +386,10 @@ class MainWindow(QMainWindow):
             ChallengesTab(),                  # 1
             RunesTab(),                       # 2
             TodoTab(),                        # 3
-            SettingsTab(str(self.data_file), self._on_change_folder),  # 4
-            AboutTab(),                       # 5
+            DashboardTab(),                   # 4
+            OverlayTab(),                     # 4 → 5
+            SettingsTab(str(self.data_file), self._on_change_folder),  # 6
+            AboutTab(),                       # 7
         ]
 
         # Stack — QStackedWidget expose uniquement le widget actif pour sizeHint
@@ -328,7 +411,7 @@ class MainWindow(QMainWindow):
         nb_lay.setSpacing(0)
 
         nav_items = [
-            ("⏱", "Timer"), ("⚔", "Challenges"), ("💎", "Runes"), ("📝", "Todo"),
+            ("⏱", "Timer"), ("⚔", "Challenges"), ("💎", "Runes"), ("📝", "Todo"), ("👤", "Dashboard"),
         ]
         self._nav_btns = []
         for i, (icon, label) in enumerate(nav_items):
@@ -358,7 +441,7 @@ class MainWindow(QMainWindow):
         mm_lay = QVBoxLayout(self._more_menu)
         mm_lay.setContentsMargins(6, 6, 6, 6); mm_lay.setSpacing(4)
 
-        for idx, (icon, label) in [(4, ("⚙", "Paramètres")), (5, ("📊", "Détails"))]:
+        for idx, (icon, label) in [(5, ("🎯", "Dots")), (6, ("⚙", "Paramètres")), (7, ("📊", "Détails"))]:
             btn = QPushButton(f"{icon}  {label}")
             btn.setStyleSheet(
                 f"QPushButton{{background:transparent;color:{theme.TEXT};"
@@ -433,7 +516,7 @@ class MainWindow(QMainWindow):
             return f"moy {m:02d}:{s:02d} · {len(times)}×"
 
         timer_tab.update_stats(f"Kill  {fmt(all_kills)}", f"Rare  {fmt(all_rares)}")
-        self._tabs[5].update_session_stats(self.maps)
+        self._tabs[7].update_session_stats(self.maps)
 
     # ── Callbacks Timer ───────────────────────────────────
 
@@ -497,6 +580,6 @@ class MainWindow(QMainWindow):
             model.set_data_file_path(new_path)
             self.data_file = new_path
             self.maps = model.load_maps(new_path)
-            self._tabs[4].update_path(str(new_path))
+            self._tabs[6].update_path(str(new_path))
 
 

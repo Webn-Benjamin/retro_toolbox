@@ -165,6 +165,33 @@ class TodoTab(QWidget):
             row2.addWidget(b)
             self._color_btns[color] = b
 
+        # Séparateur vertical
+        vsep = QFrame(); vsep.setFrameShape(QFrame.Shape.VLine)
+        vsep.setStyleSheet(f"color:{T.BORDER};"); vsep.setFixedWidth(1)
+        row2.addWidget(vsep)
+
+        # Bouton insérer case à cocher
+        btn_cb = QPushButton("☐")
+        btn_cb.setFixedSize(28, 24)
+        btn_cb.setToolTip("Insérer une case à cocher")
+        btn_cb.setStyleSheet(
+            f"QPushButton{{background:{T.BG_DARK};color:{T.TEXT};"
+            f"border:1px solid {T.BORDER};border-radius:3px;font-size:13pt;padding:0;}}"
+            f"QPushButton:hover{{border-color:{T.ORANGE};color:{T.ORANGE};}}")
+        btn_cb.clicked.connect(self._insert_checkbox)
+        row2.addWidget(btn_cb)
+
+        # Bouton tout décocher
+        btn_reset_cb = QPushButton("↺☐")
+        btn_reset_cb.setFixedSize(36, 24)
+        btn_reset_cb.setToolTip("Tout décocher")
+        btn_reset_cb.setStyleSheet(
+            f"QPushButton{{background:{T.BG_DARK};color:{T.HINT};"
+            f"border:1px solid {T.BORDER};border-radius:3px;font-size:8pt;font-weight:bold;padding:0;}}"
+            f"QPushButton:hover{{border-color:{T.ORANGE};color:{T.TEXT};}}")
+        btn_reset_cb.clicked.connect(self._reset_checkboxes)
+        row2.addWidget(btn_reset_cb)
+
         row2.addStretch()
         tb_main.addLayout(row2)
         lay.addWidget(toolbar)
@@ -186,6 +213,12 @@ class TodoTab(QWidget):
         # Propager le changement de hauteur à la fenêtre
         self._editor.document().contentsChanged.connect(self._propagate)
         self._editor.cursorPositionChanged.connect(self._update_toolbar)
+        # Override mousePressEvent pour toggle des cases
+        orig_mouse = self._editor.mousePressEvent
+        def _mouse(e, _orig=orig_mouse):
+            _orig(e)
+            self._maybe_toggle_checkbox(e)
+        self._editor.mousePressEvent = _mouse
         lay.addWidget(self._editor)
 
     # ── Formatage ─────────────────────────────────────────
@@ -259,6 +292,49 @@ class TodoTab(QWidget):
 
     def _clear(self):
         self._editor.clear()
+
+    def _insert_checkbox(self):
+        """Insère ☐ suivi d'un espace sur une nouvelle ligne."""
+        cursor = self._editor.textCursor()
+        cursor.movePosition(cursor.MoveOperation.EndOfLine)
+        # Nouvelle ligne si pas en début de doc vide
+        if self._editor.document().blockCount() > 1 or cursor.block().text().strip():
+            cursor.insertBlock()
+        fmt = QTextCharFormat()
+        fmt.setForeground(QColor(T.TEXT))
+        cursor.setCharFormat(fmt)
+        cursor.insertText("☐ ")
+        self._editor.setTextCursor(cursor)
+        self._editor.setFocus()
+
+    def _maybe_toggle_checkbox(self, e):
+        """Toggle ☐↔☑ quand on clique sur une case."""
+        cursor = self._editor.cursorForPosition(e.pos())
+        # Sélectionner le caractère sous le clic
+        c2 = self._editor.textCursor()
+        c2.setPosition(cursor.position())
+        c2.movePosition(c2.MoveOperation.Right, c2.MoveMode.KeepAnchor, 1)
+        ch = c2.selectedText()
+        if ch in ("☐", "☑"):
+            new_ch = "☑" if ch == "☐" else "☐"
+            fmt = QTextCharFormat()
+            fmt.setForeground(QColor(T.GREEN if new_ch == "☑" else T.TEXT))
+            c2.insertText(new_ch, fmt)
+            self._editor.setTextCursor(c2)
+
+    def _reset_checkboxes(self):
+        """Remet toutes les ☑ en ☐."""
+        doc = self._editor.document()
+        cursor = self._editor.textCursor()
+        cursor.beginEditBlock()
+        c = doc.find("☑")
+        while not c.isNull():
+            fmt = QTextCharFormat()
+            fmt.setForeground(QColor(T.TEXT))
+            c.insertText("☐", fmt)
+            c = doc.find("☑")
+        cursor.endEditBlock()
+        self._editor.setFocus()
 
     # ── Persistance ───────────────────────────────────────
 

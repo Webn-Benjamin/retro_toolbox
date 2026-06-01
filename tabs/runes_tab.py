@@ -80,22 +80,30 @@ class PuitPanel(QFrame):
         top.addWidget(lbl); top.addWidget(self._puit_lbl, 1)
         lay.addLayout(top)
 
-        # Boutons rapides + Reset sur une seule ligne
-        btns = QHBoxLayout(); btns.setSpacing(3)
-        for d in [-5,-3,-2,-1]:
-            b = QPushButton(str(d))
-            b.setStyleSheet(f"QPushButton{{background:{T.RED};color:white;border:none;border-radius:3px;"
+        # Boutons rapides basés sur les poids du tableau des runes
+        # Valeurs utiles : 1,2,3,5,8,9,10,20,25,30
+        def _make_btn(d):
+            label = str(d) if d < 0 else f"+{d}"
+            b = QPushButton(label)
+            bg  = T.RED     if d < 0 else T.GREEN
+            hov = "#9e4840" if d < 0 else "#6e9428"
+            b.setStyleSheet(
+                f"QPushButton{{background:{bg};color:white;border:none;border-radius:3px;"
                 f"padding:4px 0;font-weight:bold;font-size:8pt;}}"
-                f"QPushButton:hover{{background:#9e4840;}}")
+                f"QPushButton:hover{{background:{hov};}}")
             b.clicked.connect(lambda _, delta=d: self._adjust(delta))
-            btns.addWidget(b)
-        for d in [1,2,3,5]:
-            b = QPushButton(f"+{d}")
-            b.setStyleSheet(f"QPushButton{{background:{T.GREEN};color:white;border:none;border-radius:3px;"
-                f"padding:4px 0;font-weight:bold;font-size:8pt;}}"
-                f"QPushButton:hover{{background:#6e9428;}}")
-            b.clicked.connect(lambda _, delta=d: self._adjust(delta))
-            btns.addWidget(b)
+            return b
+
+        # Ligne négative : valeurs courantes en forgemagie
+        neg_row = QHBoxLayout(); neg_row.setSpacing(3)
+        for d in [-30, -25, -10, -9, -5, -3, -2, -1]:
+            neg_row.addWidget(_make_btn(d))
+        lay.addLayout(neg_row)
+
+        # Ligne positive + reset
+        pos_row = QHBoxLayout(); pos_row.setSpacing(3)
+        for d in [1, 2, 3, 5, 9, 10, 25, 30]:
+            pos_row.addWidget(_make_btn(d))
         reset = QPushButton("↺")
         reset.setFixedWidth(30)
         reset.setStyleSheet(
@@ -103,8 +111,8 @@ class PuitPanel(QFrame):
             f"border-radius:3px;padding:4px;font-size:9pt;}}"
             f"QPushButton:hover{{border-color:{T.RED};color:{T.RED};}}")
         reset.clicked.connect(self._reset)
-        btns.addWidget(reset)
-        lay.addLayout(btns)
+        pos_row.addWidget(reset)
+        lay.addLayout(pos_row)
         lay.addWidget(_sep())
 
         # Sélecteurs compacts

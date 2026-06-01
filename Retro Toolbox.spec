@@ -5,7 +5,7 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[('spells', 'spells'), ('retro_toolbox.ico', '.'), ('qt.conf', '.')],
+    datas=[('spells', 'spells'), ('pictures', 'pictures'), ('retro_toolbox.ico', '.'), ('qt.conf', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

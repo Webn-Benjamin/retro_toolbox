@@ -8,6 +8,54 @@ from PySide6.QtCore import Qt
 import model, theme
 
 
+class _ThemeSwitch(QWidget):
+    """Toggle switch ☀️/🌙 pour le thème clair/sombre."""
+
+    def __init__(self, dark: bool, on_toggle, parent=None):
+        super().__init__(parent)
+        self._dark = dark
+        self._on_toggle = on_toggle
+        self.setFixedSize(90, 28)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._build()
+
+    def _build(self):
+        from PySide6.QtWidgets import QHBoxLayout
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(0,0,0,0); lay.setSpacing(0)
+
+        self._sun = QPushButton("☀️  Clair")
+        self._moon = QPushButton("🌙  Sombre")
+        for btn in (self._sun, self._moon):
+            btn.setFixedHeight(26)
+            btn.setStyleSheet("")
+        self._sun.setFixedWidth(70)
+        self._moon.setFixedWidth(90)
+        lay.addWidget(self._sun)
+        lay.addWidget(self._moon)
+        self._sun.clicked.connect(lambda: self._set(False))
+        self._moon.clicked.connect(lambda: self._set(True))
+        self.setFixedSize(160, 28)
+        self._update_style()
+
+    def _set(self, dark):
+        if self._dark == dark: return
+        self._dark = dark
+        self._update_style()
+        self._on_toggle(dark)
+
+    def _update_style(self):
+        import theme as T
+        active_ss = (f"QPushButton{{background:{T.ORANGE};color:white;border:none;"
+                     f"border-radius:3px;padding:4px 8px;font-size:8pt;font-weight:bold;}}")
+        inactive_ss = (f"QPushButton{{background:{T.BG_DARK};color:{T.HINT};"
+                       f"border:1px solid {T.BORDER};border-radius:3px;"
+                       f"padding:4px 8px;font-size:8pt;font-weight:bold;}}"
+                       f"QPushButton:hover{{color:{T.TEXT};}}")
+        self._sun.setStyleSheet(active_ss if not self._dark else inactive_ss)
+        self._moon.setStyleSheet(active_ss if self._dark else inactive_ss)
+
+
 class SettingsTab(QWidget):
     def __init__(self, data_file_path, on_change_folder, parent=None):
         super().__init__(parent)
@@ -60,6 +108,26 @@ class SettingsTab(QWidget):
         c2.addLayout(row)
         lay.addWidget(card2)
 
+        # ── Switch thème ──────────────────────────────────
+        card3 = QFrame(); card3.setObjectName("card")
+        c3 = QVBoxLayout(card3); c3.setContentsMargins(12,10,12,10); c3.setSpacing(8)
+
+        lbl3 = QLabel("APPARENCE")
+        lbl3.setStyleSheet(f"color:{theme.HINT};font-size:7pt;font-weight:bold;letter-spacing:1px;")
+        c3.addWidget(lbl3)
+
+        theme_row = QHBoxLayout(); theme_row.setSpacing(10)
+        lbl_theme = QLabel("Thème")
+        lbl_theme.setStyleSheet(f"color:{theme.TEXT};")
+        theme_row.addWidget(lbl_theme, 1)
+
+        self._theme_switch = _ThemeSwitch(
+            model.load_config().get("dark_theme", False),
+            self._on_theme_toggle)
+        theme_row.addWidget(self._theme_switch)
+        c3.addLayout(theme_row)
+        lay.addWidget(card3)
+
         # Fixer la hauteur exacte après construction
         from PySide6.QtWidgets import QApplication
         QApplication.processEvents()
@@ -71,6 +139,16 @@ class SettingsTab(QWidget):
     def _on_slider(self, val):
         self._val_lbl.setText(f"{val} min")
         model.set_alert_threshold(val * 60)
+
+    def _on_theme_toggle(self, dark):
+        model.save_config({"dark_theme": dark})
+        # Recharger le thème et le QSS en live
+        import theme as T
+        from PySide6.QtWidgets import QApplication
+        p = T._DARK if dark else T._LIGHT
+        palette = {**p, **T._COMMON}
+        T.apply(palette)
+        QApplication.instance().setStyleSheet(T.QSS)
 
     def update_path(self, path):
         self._path_lbl.setText(path)

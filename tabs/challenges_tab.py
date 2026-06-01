@@ -122,10 +122,13 @@ class SpellGrid(QWidget):
     def __init__(self, cls_key, profile_key, parent=None):
         super().__init__(parent)
         self._cls_key = cls_key; self._profile_key = profile_key
+        # Clé d'ordre partagée par CLASSE (pas par profil)
+        # Tous les Cra partagent le même ordre de sorts
+        self._order_key = f'challenges_order_{cls_key}'
         self._spells = list(SPELLS[cls_key])
         self._grey = model.load_config().get(f'challenges_grey_{profile_key}', {})
-        # Restaurer ordre
-        order = model.load_config().get(f'challenges_order_{profile_key}', [])
+        # Restaurer ordre par classe
+        order = model.load_config().get(self._order_key, [])
         if order:
             by = {s['nom']: s for s in self._spells}
             self._spells = [by[n] for n in order if n in by] + \
@@ -160,7 +163,8 @@ class SpellGrid(QWidget):
             card.toggled_signal.connect(self._on_toggle)
             self._gl.addWidget(card, i // self.COLS, i % self.COLS)
             self._cards.append(card)
-        model.save_config({f'challenges_order_{self._profile_key}':
+        # Sauvegarder l'ordre par classe (partagé entre tous les profils de même classe)
+        model.save_config({self._order_key:
                            [s['nom'] for s in self._spells]})
 
 
@@ -324,7 +328,10 @@ class EconomePanel(QWidget):
 
     def _on_profile_created(self, pseudo, cls_key):
         if len(self._profiles) < 8:
-            self._profiles.append({'pseudo': pseudo, 'cls_key': cls_key})
+            # ID unique basé sur le timestamp pour éviter les conflits
+            import time
+            uid = str(int(time.time() * 1000))[-8:]  # 8 derniers chiffres du timestamp ms
+            self._profiles.append({'pseudo': pseudo, 'cls_key': cls_key, 'uid': uid})
             self._save(); self._current = len(self._profiles) - 1
             self._refresh_grid(); self._update_nav()
         self._toggle_picker()
@@ -335,8 +342,10 @@ class EconomePanel(QWidget):
             if item.widget(): item.widget().deleteLater()
         if self._current < len(self._profiles):
             p = self._profiles[self._current]
-            # Clé stable basée sur le pseudo, pas l'index
-            key = f"{p.get('pseudo', str(self._current))}_{p['cls_key']}"
+            # Clé profil pour les gris (unique par perso)
+            uid = p.get('uid') or p.get('pseudo', str(self._current))
+            key = f"{uid}_{p['cls_key']}"  # clé des sorts grisés
+            # Note: l'ordre des sorts est partagé par classe via challenges_order_{cls_key}
             g = SpellGrid(p['cls_key'], key)
             self._grid_lay.addWidget(g)
             self._grid_lay.addStretch()

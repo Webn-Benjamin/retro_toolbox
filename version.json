@@ -1,5 +1,5 @@
 {
-  "version": "1.0.7",
+  "version": "1.0.8",
   "url": "https://retro-toolbox.fr/retro_toolbox.exe",
-  "notes": "correction d'un  problème lié au lancement pour certains utilisateurs qui faisait crash l'app - correction du challenge économe pour choisir les classes"
+  "notes": " Dashboard multi-comptes et personnages, mise à jours sans re télécharger le logiciel, Dots (place des points sur l'écran comme tu veux)"
 }
