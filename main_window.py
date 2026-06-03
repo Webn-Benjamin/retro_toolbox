@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QFrame, QFileDialog, QSizePolicy, QStackedWidget
 )
-from PySide6.QtCore import Qt, QTimer, QSize
+from PySide6.QtCore import Qt, QTimer, QSize, Signal
 from PySide6.QtGui import QIcon
 from pathlib import Path
 
@@ -209,6 +209,7 @@ class WelcomeDialog(QWidget):
 
 
 class MainWindow(QMainWindow):
+    _trigger_update = Signal()
     def closeEvent(self, e):
         pos = self.pos()
         model.save_config({"window_x": pos.x(), "window_y": pos.y()})
@@ -293,6 +294,7 @@ class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
+        self._trigger_update.connect(self._show_update)
         self.setWindowTitle("Retro Toolbox")
         self.setFixedWidth(self.WIDTH)
         self.setWindowFlags(
