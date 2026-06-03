@@ -65,9 +65,10 @@ class SettingsTab(QWidget):
         self._build(data_file_path)
 
     def _build(self, data_file_path):
+        from PySide6.QtWidgets import QSizePolicy
         lay = QVBoxLayout(self)
         lay.setContentsMargins(10, 10, 10, 10)
-        lay.setSpacing(10)
+        lay.setSpacing(8)
 
         # Dossier
         card1 = QFrame(); card1.setObjectName("card")
@@ -127,14 +128,14 @@ class SettingsTab(QWidget):
         theme_row.addWidget(self._theme_switch)
         c3.addLayout(theme_row)
         lay.addWidget(card3)
+        # Ajuster la hauteur au contenu après construction
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(0, self._fit_height)
 
-        # Fixer la hauteur exacte après construction
-        from PySide6.QtWidgets import QApplication
-        QApplication.processEvents()
-        total = (lay.contentsMargins().top() + lay.contentsMargins().bottom()
-                 + card1.sizeHint().height() + card2.sizeHint().height()
-                 + lay.spacing())
-        self.setFixedHeight(total)
+    def _fit_height(self):
+        h = self.layout().sizeHint().height() + 20
+        self.setMaximumHeight(h)
+        self.setMinimumHeight(h)
 
     def _on_slider(self, val):
         self._val_lbl.setText(f"{val} min")

@@ -44,14 +44,14 @@ CLASSES = [
     "Cra",      "Enutrof",  "Pandawa",
     "Sacrieur", "Iop",      "Féca",
     "Ecaflip",  "Eniripsa", "Xélor",
-    "Sram",     "Sadida",   "Osamodas",
+    "Sram",     "Sadida",   "Autre",
 ]
 
 CLASS_COLORS = {
     "Cra": "#4e9458", "Enutrof": "#b8962a", "Pandawa": "#7b4e96",
     "Sacrieur": "#8c4038", "Iop": "#4e6e96", "Féca": "#4e8a96",
     "Ecaflip": "#4e8a7a", "Eniripsa": "#c4952a", "Xélor": "#6a6a9a",
-    "Sram": "#5a5a5a", "Sadida": "#5e8020", "Osamodas": "#7a5a20",
+    "Sram": "#5a5a5a", "Sadida": "#5e8020", "Crâ": "#7a5a20",
 }
 
 # Mapping classe → nom de fichier image (dans pictures/classes/)
@@ -67,8 +67,7 @@ CLASS_IMG = {
     "Xélor":    "xelor.png",
     "Sram":     "sram.png",
     "Sadida":   "sadida.png",
-    "Osamodas": "osamodas.png",
-      # alias
+    "Crâ":      "cra.png",  # alias
 }
 
 def _get_class_img_path(classe: str):

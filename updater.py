@@ -9,7 +9,7 @@ import tempfile
 import subprocess
 from pathlib import Path
 
-CURRENT_VERSION = "1.0.8"
+CURRENT_VERSION = "1.0.9"
 VERSION_URL     = "https://retro-toolbox.fr/version.json"
 
 

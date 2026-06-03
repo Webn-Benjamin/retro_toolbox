@@ -30,6 +30,7 @@ from tabs.about_tab      import AboutTab
 from tabs.todo_tab       import TodoTab
 from tabs.overlay_tab    import OverlayTab
 from tabs.dashboard_tab  import DashboardTab
+from tabs.accounts_tab   import AccountsTab
 
 
 class NavButton(QPushButton):
@@ -360,12 +361,24 @@ class MainWindow(QMainWindow):
         title_bar.setFixedHeight(44)
         title_bar.setStyleSheet(f"background:{theme.BG_DARK};border-bottom:1px solid {theme.BORDER};")
         tb_lay = QHBoxLayout(title_bar)
-        tb_lay.setContentsMargins(14, 0, 8, 0)
+        tb_lay.setContentsMargins(14, 0, 12, 0)
 
         lbl = QLabel("Retro Toolbox")
         lbl.setStyleSheet(f"font-size:12pt;font-weight:bold;color:{theme.TEXT};background:transparent;")
         tb_lay.addWidget(lbl)
         tb_lay.addStretch()
+
+        btn_discord = QPushButton("💬 Discord")
+        btn_discord.setFixedHeight(30)
+        btn_discord.setStyleSheet(
+            f"QPushButton{{background:#5865F2;color:white;border:none;"
+            f"padding:3px 12px;font-size:8.5pt;font-weight:bold;border-radius:4px;}}"
+            f"QPushButton:hover{{background:#4752c4;}}")
+        btn_discord.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_discord.setToolTip("Rejoindre le serveur Discord Retro Toolbox")
+        btn_discord.clicked.connect(lambda: __import__('webbrowser').open(
+            "https://discord.com/invite/Md8RJXdtQZ"))
+        tb_lay.addWidget(btn_discord)
         main_lay.addWidget(title_bar)
 
         # Callbacks timer
@@ -382,14 +395,15 @@ class MainWindow(QMainWindow):
 
         # Onglets
         self._tabs = [
-            TimerTab(self.maps, callbacks),   # 0
-            ChallengesTab(),                  # 1
+            AccountsTab(),                    # 0
+            DashboardTab(),                   # 1
             RunesTab(),                       # 2
             TodoTab(),                        # 3
-            DashboardTab(),                   # 4
-            OverlayTab(),                     # 4 → 5
-            SettingsTab(str(self.data_file), self._on_change_folder),  # 6
-            AboutTab(),                       # 7
+            TimerTab(self.maps, callbacks),   # 4
+            ChallengesTab(),                  # 5
+            OverlayTab(),                     # 6
+            SettingsTab(str(self.data_file), self._on_change_folder),  # 7
+            AboutTab(),                       # 8
         ]
 
         # Stack — QStackedWidget expose uniquement le widget actif pour sizeHint
@@ -411,7 +425,7 @@ class MainWindow(QMainWindow):
         nb_lay.setSpacing(0)
 
         nav_items = [
-            ("⏱", "Timer"), ("⚔", "Challenges"), ("💎", "Runes"), ("📝", "Todo"), ("👤", "Dashboard"),
+            ("👥", "Comptes"), ("👤", "Dashboard"), ("💎", "Runes"), ("📝", "Todo"),
         ]
         self._nav_btns = []
         for i, (icon, label) in enumerate(nav_items):
@@ -441,7 +455,7 @@ class MainWindow(QMainWindow):
         mm_lay = QVBoxLayout(self._more_menu)
         mm_lay.setContentsMargins(6, 6, 6, 6); mm_lay.setSpacing(4)
 
-        for idx, (icon, label) in [(5, ("🎯", "Dots")), (6, ("⚙", "Paramètres")), (7, ("📊", "Détails"))]:
+        for idx, (icon, label) in [(4, ("⏱", "Timer")), (5, ("⚔", "Challenges")), (6, ("🎯", "Dots")), (7, ("⚙", "Paramètres")), (8, ("📊", "Détails"))]:
             btn = QPushButton(f"{icon}  {label}")
             btn.setStyleSheet(
                 f"QPushButton{{background:transparent;color:{theme.TEXT};"
@@ -495,7 +509,7 @@ class MainWindow(QMainWindow):
 
     def _refresh_stats(self):
         # Stats de la map active uniquement
-        timer_tab = self._tabs[0]
+        timer_tab = self._tabs[4]
         current_map = getattr(timer_tab, '_current_map', None)
         all_kills, all_rares = [], []
         maps_to_scan = {}
@@ -516,7 +530,7 @@ class MainWindow(QMainWindow):
             return f"moy {m:02d}:{s:02d} · {len(times)}×"
 
         timer_tab.update_stats(f"Kill  {fmt(all_kills)}", f"Rare  {fmt(all_rares)}")
-        self._tabs[7].update_session_stats(self.maps)
+        self._tabs[8].update_session_stats(self.maps)
 
     # ── Callbacks Timer ───────────────────────────────────
 
@@ -540,16 +554,16 @@ class MainWindow(QMainWindow):
             return
         name = f"Map {len(self.maps)+1}"
         self.maps[name] = model.new_map_data()
-        self._tabs[0].add_map(name, self.maps[name])
+        self._tabs[4].add_map(name, self.maps[name])
         self._save()
 
     def _on_delete_map(self):
         if len(self.maps) <= 1:
             return
-        name = self._tabs[0]._current_map
+        name = self._tabs[4]._current_map
         if name in self.maps:
             del self.maps[name]
-            self._tabs[0].remove_map(name)
+            self._tabs[4].remove_map(name)
             self._save()
 
     def _on_reset_all(self):
@@ -569,7 +583,7 @@ class MainWindow(QMainWindow):
         if new not in self.maps and old in self.maps:
             # Renommer in-place pour garder la même référence dict
             self.maps[new] = self.maps.pop(old)
-            self._tabs[0].rename_map(old, new)
+            self._tabs[4].rename_map(old, new)
             self._save()
 
     def _on_change_folder(self):
@@ -580,6 +594,6 @@ class MainWindow(QMainWindow):
             model.set_data_file_path(new_path)
             self.data_file = new_path
             self.maps = model.load_maps(new_path)
-            self._tabs[6].update_path(str(new_path))
+            self._tabs[7].update_path(str(new_path))
 
 
