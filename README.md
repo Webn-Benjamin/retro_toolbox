@@ -1,12 +1,12 @@
 <div align="center">
 
-<img src="retro_toolbox.ico" width="80" alt="Retro Toolbox icon">
+<img src="retro_toolbox.png" width="80" alt="Retro Toolbox icon">
 
 # Retro Toolbox
 
 **Outil de gestion pour Dofus Rétro**
 
-[![Version](https://img.shields.io/badge/version-1.0.9-orange?style=flat-square)](https://retro-toolbox.fr)
+[![Version](https://img.shields.io/badge/version-1.1.1-orange?style=flat-square)](https://retro-toolbox.fr)
 [![Platform](https://img.shields.io/badge/platform-Windows-blue?style=flat-square)](https://retro-toolbox.fr)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue?style=flat-square)](https://python.org)
 [![License](https://img.shields.io/badge/license-Source%20Available-lightgrey?style=flat-square)](LICENSE)

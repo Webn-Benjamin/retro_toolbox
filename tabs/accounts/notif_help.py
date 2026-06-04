@@ -89,8 +89,9 @@ class NotifHelpDialog(QDialog):
             badge.setFixedSize(26, 26)
             badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
             badge.setStyleSheet(
-                f"background:{T.ORANGE};color:white;"
-                f"font-size:9.5pt;font-weight:bold;")
+                f"background:qlineargradient(x1:0,y1:0,x2:1,y2:1,"
+                f"stop:0 {T.GRAD1},stop:1 {T.GRAD2});color:white;"
+                f"font-size:10pt;font-weight:bold;")
 
             info_w = QVBoxLayout()
             info_w.setSpacing(2)
@@ -98,11 +99,11 @@ class NotifHelpDialog(QDialog):
             t_lbl = QLabel(titre)
             t_lbl.setStyleSheet(
                 f"background:transparent;color:{T.TEXT};border:none;"
-                f"font-size:9.5pt;font-weight:bold;")
+                f"font-size:10pt;font-weight:bold;")
 
             d_lbl = QLabel(detail)
             d_lbl.setStyleSheet(
-                f"background:transparent;color:{T.HINT};font-size:8.5pt;")
+                f"background:transparent;color:{T.HINT};font-size:9pt;")
             d_lbl.setWordWrap(True)
 
             info_w.addWidget(t_lbl)
@@ -123,9 +124,9 @@ class NotifHelpDialog(QDialog):
         btn_open = QPushButton("Ouvrir Parametres Windows")
         btn_open.setFixedHeight(34)
         btn_open.setStyleSheet(
-            f"QPushButton{{background:{T.ORANGE};color:white;border:none;"
-            f"padding:5px 12px;font-size:9.5pt;font-weight:bold;}}"
-            f"QPushButton:hover{{background:{T.ORANGE_L};}}")
+            f"QPushButton{{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 {T.GRAD1},stop:1 {T.GRAD2});color:white;border:none;"
+            f"padding:5px 12px;font-size:10pt;font-weight:bold;}}"
+            f"QPushButton:hover{{background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 {T.GRAD1},stop:1 {T.GRAD2});}}")
         btn_open.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_open.clicked.connect(self._open_settings)
 

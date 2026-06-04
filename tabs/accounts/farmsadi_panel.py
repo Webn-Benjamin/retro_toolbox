@@ -19,7 +19,7 @@ _KEY_NAMES = {
 }
 
 
-def _lbl(txt, color=None, sz="8.5pt", bold=False, italic=False):
+def _lbl(txt, color=None, sz="9pt", bold=False, italic=False):
     l = QLabel(txt)
     ss = f"background:transparent;font-size:{sz};"
     if color:  ss += f"color:{color};"
@@ -129,7 +129,7 @@ class FarmSadiPanel(QWidget):
         scl.addWidget(_lbl(
             "Appuie sur ce raccourci quand c'est au tour de ton Sadida\n"
             "pour démarrer le compteur.", T.HINT, "9pt", italic=True))
-        scl.addWidget(_lbl("Le raccourci fonctionne uniquement si Dofus est actif.", T.HINT, "8.5pt", italic=True))
+        scl.addWidget(_lbl("Le raccourci fonctionne uniquement si Dofus est actif.", T.HINT, "9pt", italic=True))
 
         sc_row = QHBoxLayout(); sc_row.setSpacing(5)
         self._sc_inp = QLineEdit(shortcut or "Aucun")
@@ -163,7 +163,7 @@ class FarmSadiPanel(QWidget):
             f"QFrame{{background:{T.SURFACE};border-bottom:1px solid {T.BORDER};}}")
         tl = QHBoxLayout(turns_card)
         tl.setContentsMargins(12, 10, 12, 10); tl.setSpacing(10)
-        tl.addWidget(_lbl("Ignorer", T.TEXT, "8.5pt"), 1)
+        tl.addWidget(_lbl("Ignorer", T.TEXT, "9pt"), 1)
 
         spin = QSpinBox()
         spin.setRange(1, 20)
@@ -177,7 +177,7 @@ class FarmSadiPanel(QWidget):
             f"background:{T.BG_DARK};border:none;width:14px;}}")
         spin.valueChanged.connect(self._on_turns_change)
         tl.addWidget(spin)
-        tl.addWidget(_lbl("tours de combat", T.TEXT, "8.5pt"))
+        tl.addWidget(_lbl("tours de combat", T.TEXT, "9pt"))
         self._lay.addWidget(turns_card)
 
         # ── Section Personnages Sadida ─────────────────────
@@ -197,7 +197,7 @@ class FarmSadiPanel(QWidget):
         windows = scan_windows()
         if not windows:
             no = _lbl("Aucune fenêtre Dofus détectée. Ouvre Dofus et relance.",
-                      T.HINT, "9.5pt", italic=True)
+                      T.HINT, "10pt", italic=True)
             no.setContentsMargins(12, 8, 12, 8)
             self._lay.addWidget(no)
         else:
@@ -246,7 +246,7 @@ class FarmSadiPanel(QWidget):
         l = QLabel(f"  {title}")
         l.setStyleSheet(
             f"background:{T.BG_DARK};color:{T.HINT};"
-            f"font-size:8pt;font-weight:bold;letter-spacing:1px;"
+            f"font-size:8pt;font-weight:bold;"
             f"padding:4px 0;border-top:1px solid {T.BORDER};"
             f"border-bottom:1px solid {T.BORDER};")
         l.setFixedHeight(24)
@@ -260,7 +260,7 @@ class FarmSadiPanel(QWidget):
         row.setCursor(Qt.CursorShape.PointingHandCursor)
         row.setFixedHeight(40)
         rl = QHBoxLayout(row); rl.setContentsMargins(12, 0, 12, 0); rl.setSpacing(10)
-        lbl = _lbl(label, T.TEXT, "8.5pt"); rl.addWidget(lbl, 1)
+        lbl = _lbl(label, T.TEXT, "9pt"); rl.addWidget(lbl, 1)
         sw  = QLabel("ON  ●" if checked else "●  OFF")
         sw.setFixedWidth(54); sw.setAlignment(Qt.AlignmentFlag.AlignCenter)
         sw.setStyleSheet(

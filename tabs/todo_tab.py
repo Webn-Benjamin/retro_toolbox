@@ -19,7 +19,7 @@ def _tbtn(text, tooltip, callback, checkable=False):
     b.setCheckable(checkable)
     b.setStyleSheet(
         f"QPushButton{{background:{T.BG_DARK};color:{T.SUBTEXT};"
-        f"border:1px solid {T.BORDER};border-radius:3px;"
+        f"border:1px solid {T.BORDER};border-radius:6px;"
         f"font-size:10pt;font-weight:bold;padding:0;}}"
         f"QPushButton:hover{{background:{T.SURFACE};border-color:{T.ORANGE};color:{T.TEXT};}}"
         f"QPushButton:checked{{background:{T.ORANGE};color:white;border-color:{T.ORANGE};}}")
@@ -99,7 +99,7 @@ class TodoTab(QWidget):
         self._btn_italic = _tbtn("I", "Italique",   self._toggle_italic, checkable=True)
         self._btn_under  = _tbtn("U", "Souligné",   self._toggle_under,  checkable=True)
         self._btn_bold.setStyleSheet(
-            self._btn_bold.styleSheet() + "QPushButton{font-weight:900;}")
+            self._btn_bold.styleSheet() + "QPushButton{font-weight:bold;}")
         self._btn_italic.setStyleSheet(
             self._btn_italic.styleSheet() + "QPushButton{font-style:italic;}")
         self._btn_under.setStyleSheet(
@@ -118,7 +118,7 @@ class TodoTab(QWidget):
             b.setToolTip(f"Taille {size}pt")
             b.setStyleSheet(
                 f"QPushButton{{background:{T.BG_DARK};color:{T.SUBTEXT};"
-                f"border:1px solid {T.BORDER};border-radius:3px;"
+                f"border:1px solid {T.BORDER};border-radius:6px;"
                 f"font-size:{size-2}pt;padding:0;}}"
                 f"QPushButton:hover{{background:{T.SURFACE};border-color:{T.ORANGE};color:{T.TEXT};}}")
             b.clicked.connect(lambda _, s=size: self._set_size(s))
@@ -158,7 +158,7 @@ class TodoTab(QWidget):
             b.setToolTip(name)
             b.setStyleSheet(
                 f"QPushButton{{background:{T.BG_DARK};color:{color};"
-                f"border:2px solid {T.BG_DARK};border-radius:3px;"
+                f"border:2px solid {T.BG_DARK};border-radius:6px;"
                 f"font-size:9pt;font-weight:bold;padding:0;}}"
                 f"QPushButton:hover{{border-color:{color};}}")
             b.clicked.connect(lambda _, col=color: self._set_color(col))
@@ -176,7 +176,7 @@ class TodoTab(QWidget):
         btn_cb.setToolTip("Insérer une case à cocher")
         btn_cb.setStyleSheet(
             f"QPushButton{{background:{T.BG_DARK};color:{T.TEXT};"
-            f"border:1px solid {T.BORDER};border-radius:3px;font-size:13pt;padding:0;}}"
+            f"border:1px solid {T.BORDER};border-radius:6px;font-size:13pt;padding:0;}}"
             f"QPushButton:hover{{border-color:{T.ORANGE};color:{T.ORANGE};}}")
         btn_cb.clicked.connect(self._insert_checkbox)
         row2.addWidget(btn_cb)
@@ -187,7 +187,7 @@ class TodoTab(QWidget):
         btn_reset_cb.setToolTip("Tout décocher")
         btn_reset_cb.setStyleSheet(
             f"QPushButton{{background:{T.BG_DARK};color:{T.HINT};"
-            f"border:1px solid {T.BORDER};border-radius:3px;font-size:8pt;font-weight:bold;padding:0;}}"
+            f"border:1px solid {T.BORDER};border-radius:6px;font-size:8pt;font-weight:bold;padding:0;}}"
             f"QPushButton:hover{{border-color:{T.ORANGE};color:{T.TEXT};}}")
         btn_reset_cb.clicked.connect(self._reset_checkboxes)
         row2.addWidget(btn_reset_cb)
@@ -265,13 +265,13 @@ class TodoTab(QWidget):
             if color == active_color:
                 btn.setStyleSheet(
                     f"QPushButton{{background:{color};color:white;"
-                    f"border:2px solid {color};border-radius:3px;"
+                    f"border:2px solid {color};border-radius:6px;"
                     f"font-size:9pt;font-weight:bold;padding:0;}}"
                     f"QPushButton:hover{{border-color:{color};}}")
             else:
                 btn.setStyleSheet(
                     f"QPushButton{{background:{T.BG_DARK};color:{color};"
-                    f"border:2px solid {T.BG_DARK};border-radius:3px;"
+                    f"border:2px solid {T.BG_DARK};border-radius:6px;"
                     f"font-size:9pt;font-weight:bold;padding:0;}}"
                     f"QPushButton:hover{{border-color:{color};}}")
 

@@ -45,7 +45,12 @@ def _tab_btn(label: str, active: bool) -> QPushButton:
 
 class AccountsTab(QWidget):
 
-    _notif_received = Signal(object)  # Signal thread-safe
+    _notif_received = Signal(object)
+    _do_next        = Signal()
+    _do_prev        = Signal()
+    _do_main        = Signal()
+    _do_back        = Signal()
+    _do_cs          = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -63,6 +68,11 @@ class AccountsTab(QWidget):
             on_state_change=self._on_move_state)
         self._build()
         self._notif_received.connect(self._show_notif)
+        self._do_next.connect(self._next_safe)
+        self._do_prev.connect(self._prev_safe)
+        self._do_main.connect(self._main_safe)
+        self._do_back.connect(self._back_safe)
+        self._do_cs.connect(self._cs_safe)
         self._start_watcher()
         # Réappliquer les raccourcis après démarrage event loop
         QTimer.singleShot(500, self._sc._load_and_apply)
@@ -105,11 +115,27 @@ class AccountsTab(QWidget):
         # ── Barre d'onglets ────────────────────────────────
         tbar = QFrame()
         tbar.setStyleSheet(
-            f"QFrame{{background:{T.BG_DARK};border-bottom:1px solid {T.BORDER};}}")
-        tbl = QHBoxLayout(tbar); tbl.setContentsMargins(0,0,0,0); tbl.setSpacing(0)
+            f"QFrame{{background:{T.SURFACE};border-bottom:1px solid {T.BORDER};}}")
+        tbl = QHBoxLayout(tbar); tbl.setContentsMargins(4,4,4,4); tbl.setSpacing(3)
         self._tab_btns = []
+        _btn_w = 100  # largeur fixe identique pour les 3 boutons
         for i, lbl in enumerate(["👥 Personnages", "⌨ Raccourcis", "⚙ Paramètres"]):
-            btn = _tab_btn(lbl, i == 0)
+            btn = QPushButton(lbl)
+            btn.setCheckable(True); btn.setChecked(i == 0)
+            btn.setFixedHeight(26)
+            btn.setFixedWidth(_btn_w)
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            ss_on = (
+                f"QPushButton{{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,"
+                f"stop:0 {T.GRAD1},stop:1 {T.GRAD2});color:white;"
+                f"border:2px solid transparent;border-radius:8px;"
+                f"font-size:8pt;font-weight:700;padding:3px 6px;}}")
+            ss_off = (
+                f"QPushButton{{background:{T.SURFACE};color:{T.HINT};"
+                f"border:2px solid transparent;border-radius:8px;"
+                f"font-size:8pt;font-weight:700;padding:3px 6px;}}"
+                f"QPushButton:hover{{color:{T.TEXT};background:{T.SURFACE2};}}")
+            btn.setStyleSheet(ss_on if i == 0 else ss_off)
             btn.clicked.connect(lambda _, idx=i: self._show_tab(idx))
             tbl.addWidget(btn); self._tab_btns.append(btn)
 
@@ -139,14 +165,28 @@ class AccountsTab(QWidget):
         lbl_mode.setStyleSheet(f"background:transparent;color:{T.HINT};font-size:9pt;font-weight:bold;")
         row1.addWidget(lbl_mode)
 
+        pill_base = (
+            f"QPushButton{{background:{T.BG_DARK};color:{T.HINT};"
+            f"border:1px solid {T.BORDER};border-radius:14px;"
+            f"padding:3px 12px;font-size:9pt;font-weight:700;}}"
+            f"QPushButton:hover{{background:{T.BORDER};color:{T.TEXT};}}"
+        )
+        pill_on_green = (
+            f"QPushButton{{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,"
+            f"stop:0 {T.GRAD1},stop:1 {T.GRAD2});color:white;"
+            f"border:none;border-radius:14px;"
+            f"padding:3px 12px;font-size:9pt;font-weight:700;}}"
+        )
+        pill_on_blue = (
+            f"QPushButton{{background:{T.BLUE};color:white;"
+            f"border:none;border-radius:14px;"
+            f"padding:3px 12px;font-size:9pt;font-weight:700;}}"
+        )
+
         self._farm_btn = QPushButton("🌾 Farm OFF")
         self._farm_btn.setFixedHeight(28)
         self._farm_btn.setCheckable(True); self._farm_btn.setChecked(False)
-        self._farm_btn.setStyleSheet(
-            f"QPushButton{{background:{T.SURFACE};color:{T.HINT};border:none;"
-            f"padding:2px 10px;font-size:9pt;font-weight:bold;}}"
-            f"QPushButton:hover{{color:{T.TEXT};}}"
-            f"QPushButton:checked{{background:{T.GREEN};color:white;}}")
+        self._farm_btn.setStyleSheet(pill_base)
         self._farm_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._farm_btn.setToolTip("Désactive l'autofocus combat sur tous les comptes")
         self._farm_btn.clicked.connect(self._toggle_farm_mode)
@@ -155,15 +195,15 @@ class AccountsTab(QWidget):
         self._move_btn = QPushButton("👟 Déplacement OFF")
         self._move_btn.setFixedHeight(28)
         self._move_btn.setCheckable(True); self._move_btn.setChecked(False)
-        self._move_btn.setStyleSheet(
-            f"QPushButton{{background:{T.SURFACE};color:{T.HINT};border:none;"
-            f"padding:2px 10px;font-size:9pt;font-weight:bold;}}"
-            f"QPushButton:hover{{color:{T.TEXT};}}"
-            f"QPushButton:checked{{background:{T.BLUE};color:white;}}")
+        self._move_btn.setStyleSheet(pill_base)
         self._move_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._move_btn.setToolTip("Clic gauche sur Dofus = personnage suivant")
         self._move_btn.clicked.connect(self._toggle_move_mode)
         row1.addWidget(self._move_btn)
+
+        self._pill_base     = pill_base
+        self._pill_on_green = pill_on_green
+        self._pill_on_blue  = pill_on_blue
         row1.addStretch()
         mv.addLayout(row1)
 
@@ -172,11 +212,7 @@ class AccountsTab(QWidget):
         self._sadi_btn = QPushButton("🌿 Farm Sadi OFF")
         self._sadi_btn.setFixedHeight(28)
         self._sadi_btn.setCheckable(True); self._sadi_btn.setChecked(False)
-        self._sadi_btn.setStyleSheet(
-            f"QPushButton{{background:{T.SURFACE};color:{T.HINT};border:none;"
-            f"padding:2px 10px;font-size:9pt;font-weight:bold;}}"
-            f"QPushButton:hover{{color:{T.TEXT};}}"
-            f"QPushButton:checked{{background:#5a8a5a;color:white;}}")
+        self._sadi_btn.setStyleSheet(self._pill_base)
         self._sadi_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._sadi_btn.setToolTip("Ignore le combat N tours pour les Sadidas cochés")
         self._sadi_btn.clicked.connect(self._toggle_sadi_mode)
@@ -198,14 +234,14 @@ class AccountsTab(QWidget):
         for txt in []:
             pass
         lbl_t1 = _QL2("Ignorer")
-        lbl_t1.setStyleSheet(f"background:transparent;color:{T.TEXT};font-size:9.5pt;font-weight:bold;")
+        lbl_t1.setStyleSheet(f"background:transparent;color:{T.TEXT};font-size:10pt;font-weight:bold;")
         self._sadi_spin = QSpinBox()
         self._sadi_spin.setRange(1, 20)
         self._sadi_spin.setValue(self._cfg.get("farmsadi", {}).get("turns", 3))
         self._sadi_spin.setFixedWidth(56); self._sadi_spin.setFixedHeight(28)
         self._sadi_spin.setStyleSheet(
             f"QSpinBox{{background:{T.BG_DARK};color:{T.ORANGE};border:none;"
-            f"padding:3px 6px;font-size:9.5pt;font-weight:bold;}}"
+            f"padding:3px 6px;font-size:10pt;font-weight:bold;}}"
             f"QSpinBox::up-button,QSpinBox::down-button{{background:{T.BG_DARK};border:none;width:14px;}}")
         self._sadi_spin.valueChanged.connect(self._on_sadi_turns_change)
         lbl_t2 = _QL2("tours de combat avant autofocus")
@@ -244,14 +280,15 @@ class AccountsTab(QWidget):
     def _show_tab(self, idx: int):
         self._stack.setCurrentIndex(idx)
         ss_on = (
-            f"QPushButton{{background:{T.SURFACE};color:{T.ORANGE};"
-            f"border:none;border-top:2px solid {T.ORANGE};"
-            f"padding:7px 4px;font-size:8pt;font-weight:bold;}}")
+            f"QPushButton{{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,"
+            f"stop:0 {T.GRAD1},stop:1 {T.GRAD2});color:white;"
+            f"border:2px solid transparent;border-radius:8px;"
+            f"font-size:8pt;font-weight:700;padding:3px 6px;}}")
         ss_off = (
-            f"QPushButton{{background:{T.BG_DARK};color:{T.HINT};"
-            f"border:none;border-top:2px solid transparent;"
-            f"padding:7px 4px;font-size:8pt;font-weight:bold;}}"
-            f"QPushButton:hover{{color:{T.TEXT};}}")
+            f"QPushButton{{background:{T.SURFACE};color:{T.HINT};"
+            f"border:2px solid transparent;border-radius:8px;"
+            f"font-size:8pt;font-weight:700;padding:3px 6px;}}"
+            f"QPushButton:hover{{color:{T.TEXT};background:{T.SURFACE2};}}")
         for i, btn in enumerate(self._tab_btns):
             btn.setChecked(i == idx)
             btn.setStyleSheet(ss_on if i == idx else ss_off)
@@ -259,19 +296,26 @@ class AccountsTab(QWidget):
 
     # ── Navigation ─────────────────────────────────────────
 
-    def _next(self):
+    # Appelés depuis thread keyboard → émettent un signal vers le thread Qt
+    def _next(self): self._do_next.emit()
+    def _prev(self): self._do_prev.emit()
+    def _main(self): self._do_main.emit()
+    def _back(self): self._do_back.emit()
+
+    # Exécutés sur le thread Qt principal
+    def _next_safe(self):
         self._chars.cycle(+1)
         self._reg.ctrl_shift.reapply()
 
-    def _prev(self):
+    def _prev_safe(self):
         self._chars.cycle(-1)
         self._reg.ctrl_shift.reapply()
 
-    def _main(self):
+    def _main_safe(self):
         self._chars.go_main()
         self._reg.ctrl_shift.reapply()
 
-    def _back(self):
+    def _back_safe(self):
         self._chars.go_prev()
 
     def _apply_maximize_on_launch(self):
@@ -292,6 +336,8 @@ class AccountsTab(QWidget):
     def _toggle_farm_mode(self):
         self._farm_mode = self._farm_btn.isChecked()
         self._farm_btn.setText("🌾 Farm ON" if self._farm_mode else "🌾 Farm OFF")
+        self._farm_btn.setStyleSheet(
+            self._pill_on_green if self._farm_mode else self._pill_base)
 
     def _toggle_move_mode(self):
         self._move_mgr.toggle()
@@ -303,10 +349,14 @@ class AccountsTab(QWidget):
     def _update_move_btn(self, active: bool):
         self._move_btn.setChecked(active)
         self._move_btn.setText("👟 Déplacement ON" if active else "👟 Déplacement OFF")
+        self._move_btn.setStyleSheet(
+            self._pill_on_blue if active else self._pill_base)
 
     def _toggle_sadi_mode(self):
         on = self._sadi_btn.isChecked()
         self._sadi_btn.setText("🌿 Sadi ON" if on else "🌿 Sadi OFF")
+        self._sadi_btn.setStyleSheet(
+            self._pill_on_green if on else self._pill_base)
         self._cfg.setdefault("farmsadi", {})["enabled"] = on
         if on:
             self._refresh_sadi_chars()
@@ -331,7 +381,7 @@ class AccountsTab(QWidget):
             cb = QCheckBox(win.pseudo)
             cb.setChecked(win.pseudo in sadis)
             cb.setStyleSheet(
-                f"QCheckBox{{color:{T.TEXT};font-size:9.5pt;background:transparent;spacing:8px;}}"
+                f"QCheckBox{{color:{T.TEXT};font-size:10pt;background:transparent;spacing:8px;}}"
                 f"QCheckBox::indicator{{width:16px;height:16px;background:{T.BG_DARK};border:none;}}"
                 f"QCheckBox::indicator:checked{{background:#5a8a5a;}}")
             cb.toggled.connect(lambda v, p=win.pseudo: self._on_sadi_char_toggle(p, v))
@@ -348,7 +398,9 @@ class AccountsTab(QWidget):
         self._farmsadi.turns = val
         self._cfg.setdefault("farmsadi", {})["turns"] = val; self._save()
 
-    def _toggle_cs(self):
+    def _toggle_cs(self): self._do_cs.emit()
+
+    def _cs_safe(self):
         active = self._reg.ctrl_shift.toggle()
         self._sc.update_cs_indicator(active)
 

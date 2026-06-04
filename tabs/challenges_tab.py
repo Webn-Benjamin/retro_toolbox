@@ -102,7 +102,7 @@ class SpellCard(QLabel):
     def dragEnterEvent(self, e):
         if e.mimeData().hasText():
             e.acceptProposedAction()
-            self.setStyleSheet(f"QLabel{{border:2px solid {T.ORANGE};border-radius:3px;}}")
+            self.setStyleSheet(f"QLabel{{border:2px solid {T.ORANGE};border-radius:6px;}}")
 
     def dragLeaveEvent(self, e): self.setStyleSheet("")
 
@@ -191,7 +191,7 @@ class ClassPickerPanel(QFrame):
         self._pseudo.setPlaceholderText("Nom du personnage")
         self._pseudo.setStyleSheet(
             f"QLineEdit{{background:{T.SURFACE2};border:1px solid {T.BORDER};"
-            f"border-radius:3px;padding:5px 8px;color:{T.TEXT};font-size:9pt;}}"
+            f"border-radius:6px;padding:5px 8px;color:{T.TEXT};font-size:9pt;}}"
             f"QLineEdit:focus{{border-color:{T.ORANGE};}}")
         lay.addWidget(lbl); lay.addWidget(self._pseudo)
 
@@ -218,9 +218,9 @@ class ClassPickerPanel(QFrame):
         # Confirmer
         confirm = QPushButton("✔  Créer le personnage")
         confirm.setStyleSheet(
-            f"QPushButton{{background:{T.ORANGE};color:white;border:none;border-radius:3px;"
+            f"QPushButton{{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 {T.GRAD1},stop:1 {T.GRAD2});color:white;border:none;border-radius:6px;"
             f"padding:8px;font-weight:bold;font-size:9pt;}}"
-            f"QPushButton:hover{{background:{T.ORANGE_L};}}")
+            f"QPushButton:hover{{background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 {T.GRAD1},stop:1 {T.GRAD2});}}")
         confirm.clicked.connect(self._confirm)
         lay.addWidget(confirm)
 
@@ -321,7 +321,7 @@ class EconomePanel(QWidget):
         self._picker.setMaximumHeight(16777215 if self._picker_visible else 0)
         self._btn_add.setText("✕  Fermer" if self._picker_visible else "＋  Ajouter un personnage")
         self._btn_add.setStyleSheet(
-            f"QPushButton{{background:{'#8c4038' if self._picker_visible else T.GREEN};"
+            f"QPushButton{{background:{'T.RED' if self._picker_visible else T.GREEN};"
             f"color:white;border:none;border-radius:4px;padding:9px 0;font-weight:bold;font-size:9pt;}}"
             f"QPushButton:hover{{background:{'#9e4840' if self._picker_visible else '#6e9428'};}}")
         self._fit()
@@ -425,7 +425,7 @@ class PartagePanel(QWidget):
             num.setStyleSheet(f"color:{T.HINT};font-weight:bold;font-size:9pt;"); num.setFixedWidth(20)
             entry = QLineEdit(); entry.setPlaceholderText(f"Pseudo {i+1}")
             entry.setStyleSheet(
-                f"QLineEdit{{border:1px solid {T.BORDER};border-radius:3px;padding:5px 8px;"
+                f"QLineEdit{{border:1px solid {T.BORDER};border-radius:6px;padding:5px 8px;"
                 f"background:{T.SURFACE2};color:{T.TEXT};font-size:9pt;}}"
                 f"QLineEdit:focus{{border-color:{T.ORANGE};}}")
             entry.textChanged.connect(self._save)
@@ -441,8 +441,8 @@ class PartagePanel(QWidget):
         reset = QPushButton("↺  Tout remettre à zéro")
         reset.setStyleSheet(
             f"QPushButton{{background:transparent;border:1px solid {T.RED};color:{T.RED};"
-            f"border-radius:3px;padding:6px;font-weight:bold;}}"
-            f"QPushButton:hover{{background:rgba(140,64,56,0.08);}}")
+            f"border-radius:6px;padding:6px;font-weight:bold;}}"
+            f"QPushButton:hover{{background:rgba(140,64,56,20);}}")
         reset.clicked.connect(self._reset); lay.addWidget(reset); lay.addStretch()
 
     def _save(self):
@@ -487,8 +487,8 @@ class ChallengesTab(QWidget):
         for btn in (self._btn_eco, self._btn_part):
             btn.setStyleSheet(
                 f"QPushButton{{background:{T.BG_DARK};color:{T.HINT};border:none;"
-                f"border-radius:3px;padding:8px 16px;font-weight:bold;font-size:9pt;}}"
-                f"QPushButton:checked{{background:{T.ORANGE};color:white;}}")
+                f"border-radius:6px;padding:8px 16px;font-weight:bold;font-size:9pt;}}"
+                f"QPushButton:checked{{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 {T.GRAD1},stop:1 {T.GRAD2});color:white;}}")
         self._btn_eco.clicked.connect(lambda: self._set_mode('econome'))
         self._btn_part.clicked.connect(lambda: self._set_mode('partage'))
         row.addWidget(self._btn_eco); row.addWidget(self._btn_part); row.addStretch()

@@ -1,12 +1,12 @@
-"""tabs/about_tab.py — Détails PySide6."""
-
+"""tabs/about_tab.py — Détails et session."""
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QFrame, QPushButton
 )
 from PySide6.QtCore import Qt, QTimer
 from datetime import datetime
 import theme
 
+T = theme
 
 class AboutTab(QWidget):
     def __init__(self, parent=None):
@@ -17,83 +17,105 @@ class AboutTab(QWidget):
 
     def _build(self):
         lay = QVBoxLayout(self)
-        lay.setContentsMargins(10, 10, 10, 10)
+        lay.setContentsMargins(12, 14, 12, 14)
         lay.setSpacing(10)
 
-        # Titre
-        card1 = QFrame(); card1.setObjectName("card")
-        c1 = QVBoxLayout(card1); c1.setContentsMargins(12,16,12,16); c1.setSpacing(6)
-
+        # ── Hero card ─────────────────────────────────────
+        hero = QFrame()
+        hero.setStyleSheet(
+            f"QFrame{{background:qlineargradient(x1:0,y1:0,x2:1,y2:1,"
+            f"stop:0 {T.GRAD1},stop:1 {T.GRAD2});"
+            f"border-radius:12px;border:none;}}"
+            f"QLabel{{background:transparent;color:white;}}")
+        hl = QVBoxLayout(hero); hl.setContentsMargins(20,20,20,20); hl.setSpacing(4)
+        icon = QLabel("🎮")
+        icon.setStyleSheet("font-size:28pt;background:transparent;color:white;")
+        icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        hl.addWidget(icon)
         title = QLabel("Retro Toolbox")
-        title.setStyleSheet(f"font-size:14pt;font-weight:bold;color:{theme.TEXT};")
+        title.setStyleSheet("font-size:15pt;font-weight:bold;background:transparent;color:white;")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        c1.addWidget(title)
-
-        ver = QLabel("Version 1.0.0")
-        ver.setStyleSheet(f"color:{theme.HINT};font-size:8pt;")
+        hl.addWidget(title)
+        from updater import CURRENT_VERSION
+        ver = QLabel(f"v{CURRENT_VERSION}")
+        ver.setStyleSheet("font-size:9pt;background:transparent;color:white;")
         ver.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        c1.addWidget(ver)
-        c1.addWidget(theme.sep(card1))
-
-        QLabel("Powered by").setParent(None)
-        by = QLabel("Powered by")
-        by.setStyleSheet(f"color:{theme.HINT};font-size:8pt;")
+        hl.addWidget(ver)
+        by = QLabel("par Steal")
+        by.setStyleSheet("font-size:9pt;background:transparent;color:rgba(255,255,255,204);font-style:italic;")
         by.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        c1.addWidget(by)
+        hl.addWidget(by)
+        lay.addWidget(hero)
 
-        steal = QLabel("Steal")
-        steal.setStyleSheet(f"color:{theme.ORANGE};font-size:18pt;font-weight:bold;")
-        steal.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        c1.addWidget(steal)
-        lay.addWidget(card1)
-
-        # Session
-        card2 = QFrame(); card2.setObjectName("card")
-        c2 = QVBoxLayout(card2); c2.setContentsMargins(12,10,12,10); c2.setSpacing(4)
-
-        lbl_sess = QLabel("SESSION EN COURS")
-        lbl_sess.setStyleSheet(f"color:{theme.HINT};font-size:7pt;font-weight:bold;letter-spacing:1px;")
-        c2.addWidget(lbl_sess)
-        c2.addWidget(theme.sep(card2))
+        # ── Session ───────────────────────────────────────
+        sess_card = QFrame()
+        sess_card.setStyleSheet(
+            f"QFrame{{background:{T.SURFACE};border:1px solid {T.BORDER};"
+            f"border-radius:10px;}}"
+            f"QLabel{{background:transparent;}}")
+        sc = QVBoxLayout(sess_card); sc.setContentsMargins(14,12,14,12); sc.setSpacing(8)
+        hdr = QLabel("📊  SESSION EN COURS")
+        hdr.setStyleSheet(f"font-size:8pt;font-weight:700;color:{T.HINT};")
+        sc.addWidget(hdr)
+        sep = QFrame(); sep.setFrameShape(QFrame.Shape.HLine)
+        sep.setStyleSheet(f"color:{T.BORDER};max-height:1px;")
+        sc.addWidget(sep)
 
         self._rows = {}
-        for key, label, default, orange in [
-            ("start","Début",self._session_start.strftime("%H:%M  —  %d/%m/%Y"), False),
-            ("dur","Durée","00:00:00", True),
-            ("kills","Kills totaux","0", False),
-            ("rares","Rares totaux","0", False),
-            ("avg_kill","Moy. kills","—", False),
-            ("avg_rare","Moy. rares","—", False),
+        for key, label, default in [
+            ("kills",    "⚔️  Kills",          "0"),
+            ("rares",    "💎  Drops rares",     "0"),
+            ("duration", "⏱  Durée",           "00:00:00"),
+            ("avg",      "📈  Moy. kills/heure","—"),
         ]:
-            row = QHBoxLayout()
-            k = QLabel(label)
-            k.setStyleSheet(f"color:{theme.HINT};font-size:8pt;")
-            k.setFixedWidth(100)
+            row = QHBoxLayout(); row.setSpacing(8)
+            l = QLabel(label)
+            l.setStyleSheet(f"font-size:9pt;color:{T.SUBTEXT};font-weight:600;")
             v = QLabel(default)
-            v.setStyleSheet(f"color:{theme.ORANGE if orange else theme.TEXT};font-weight:bold;font-size:8pt;")
-            row.addWidget(k); row.addWidget(v); row.addStretch()
-            c2.addLayout(row)
+            v.setStyleSheet(
+                f"font-size:9pt;font-weight:700;color:{T.ORANGE};"
+                f"background:{T.SURFACE2};padding:2px 8px;border-radius:4px;")
+            v.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            row.addWidget(l, 1); row.addWidget(v)
+            sc.addLayout(row)
             self._rows[key] = v
-        lay.addWidget(card2)
+        lay.addWidget(sess_card)
+
+        # ── Bouton Discord ────────────────────────────────
+        btn_discord = QPushButton("💬  Rejoindre le Discord")
+        btn_discord.setFixedHeight(36)
+        btn_discord.setStyleSheet(
+            f"QPushButton{{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,"
+            f"stop:0 {T.GRAD1},stop:1 {T.GRAD2});"
+            f"color:white;border:none;border-radius:8px;"
+            f"font-size:10pt;font-weight:700;}}"
+            f"QPushButton:hover{{background:qlineargradient(x1:0,y1:0,x2:0,y2:1,"
+            f"stop:0 {T.GRAD1},stop:1 {T.GRAD2});}}")
+        btn_discord.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_discord.clicked.connect(lambda: __import__('webbrowser').open(
+            "https://discord.com/invite/Md8RJXdtQZ"))
+        lay.addWidget(btn_discord)
         lay.addStretch()
 
     def _tick(self):
-        elapsed = datetime.now() - self._session_start
-        total = int(elapsed.total_seconds())
-        h, rem = divmod(total, 3600); m, s = divmod(rem, 60)
-        self._rows["dur"].setText(f"{h:02d}:{m:02d}:{s:02d}")
+        delta = datetime.now() - self._session_start
+        h, r  = divmod(int(delta.total_seconds()), 3600)
+        m, s  = divmod(r, 60)
+        self._rows["duration"].setText(f"{h:02d}:{m:02d}:{s:02d}")
+        kills = int(self._rows["kills"].text() or 0)
+        hours = delta.total_seconds() / 3600
+        avg = f"{kills/hours:.1f}" if hours > 0 else "—"
+        self._rows["avg"].setText(avg)
+
+    def add_kill(self): self._rows["kills"].setText(str(int(self._rows["kills"].text())+1))
+    def add_rare(self): self._rows["rares"].setText(str(int(self._rows["rares"].text())+1))
 
     def update_session_stats(self, maps):
-        all_kills, all_rares = [], []
+        total_kills = 0
+        total_rares = 0
         for md in maps.values():
-            for gd in md['groups'].values():
-                all_kills.extend(gd.get('deaths', []))
-                all_rares.extend(gd.get('bambouto_times', []))
-        def fmt(t):
-            if not t: return "—"
-            avg = sum(t)/len(t); m,s = divmod(int(avg),60)
-            return f"{m:02d}:{s:02d}"
-        self._rows["kills"].setText(str(len(all_kills)))
-        self._rows["rares"].setText(str(len(all_rares)))
-        self._rows["avg_kill"].setText(fmt(all_kills))
-        self._rows["avg_rare"].setText(fmt(all_rares))
+            for gd in md.get('groups', {}).values():
+                total_kills += len(gd.get('deaths', []))
+                total_rares += len(gd.get('bambouto_times', []))
+        self._rows["kills"].setText(str(total_kills))
+        self._rows["rares"].setText(str(total_rares))

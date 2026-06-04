@@ -46,7 +46,7 @@ def _sep():
 def _combo(items):
     c = QComboBox(); c.addItems(items)
     c.setStyleSheet(
-        f"QComboBox{{background:{T.SURFACE2};border:1px solid {T.BORDER};border-radius:3px;"
+        f"QComboBox{{background:{T.SURFACE2};border:1px solid {T.BORDER};border-radius:6px;"
         f"padding:4px 8px;color:{T.TEXT};font-size:9pt;}}"
         f"QComboBox QAbstractItemView{{background:{T.SURFACE};color:{T.TEXT};"
         f"selection-background-color:{T.ORANGE};selection-color:white;}}")
@@ -88,7 +88,7 @@ class PuitPanel(QFrame):
             bg  = T.RED     if d < 0 else T.GREEN
             hov = "#9e4840" if d < 0 else "#6e9428"
             b.setStyleSheet(
-                f"QPushButton{{background:{bg};color:white;border:none;border-radius:3px;"
+                f"QPushButton{{background:{bg};color:white;border:none;border-radius:6px;"
                 f"padding:4px 0;font-weight:bold;font-size:8pt;}}"
                 f"QPushButton:hover{{background:{hov};}}")
             b.clicked.connect(lambda _, delta=d: self._adjust(delta))
@@ -108,7 +108,7 @@ class PuitPanel(QFrame):
         reset.setFixedWidth(30)
         reset.setStyleSheet(
             f"QPushButton{{background:transparent;border:1px solid {T.BORDER};color:{T.SUBTEXT};"
-            f"border-radius:3px;padding:4px;font-size:9pt;}}"
+            f"border-radius:6px;padding:4px;font-size:9pt;}}"
             f"QPushButton:hover{{border-color:{T.RED};color:{T.RED};}}")
         reset.clicked.connect(self._reset)
         pos_row.addWidget(reset)
@@ -132,9 +132,9 @@ class PuitPanel(QFrame):
         calc_row = QHBoxLayout(); calc_row.setSpacing(6)
         calc = QPushButton("Calculer PUIT")
         calc.setStyleSheet(
-            f"QPushButton{{background:{T.ORANGE};color:white;border:none;border-radius:3px;"
+            f"QPushButton{{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 {T.GRAD1},stop:1 {T.GRAD2});color:white;border:none;border-radius:6px;"
             f"padding:6px;font-weight:bold;font-size:9pt;}}"
-            f"QPushButton:hover{{background:{T.ORANGE_L};}}")
+            f"QPushButton:hover{{background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 {T.GRAD1},stop:1 {T.GRAD2});}}")
         calc.clicked.connect(self._calculer)
         self._result_lbl = QLabel("")
         self._result_lbl.setStyleSheet(f"font-size:8pt;font-weight:bold;background:transparent;")
@@ -164,8 +164,8 @@ class PuitPanel(QFrame):
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         scroll.setStyleSheet(
             f"QScrollArea{{background:transparent;border:none;}}"
-            f"QScrollBar:vertical{{background:{T.BG_DARK};width:5px;border-radius:2px;}}"
-            f"QScrollBar::handle:vertical{{background:{T.BORDER};border-radius:2px;min-height:15px;}}"
+            f"QScrollBar:vertical{{background:{T.BG_DARK};width:5px;border-radius:4px;}}"
+            f"QScrollBar::handle:vertical{{background:{T.BORDER};border-radius:4px;min-height:15px;}}"
             f"QScrollBar::handle:vertical:hover{{background:{T.ORANGE};}}"
             f"QScrollBar::add-line:vertical,QScrollBar::sub-line:vertical{{height:0;}}")
 
@@ -350,9 +350,9 @@ class RunesTab(QWidget):
         title.setStyleSheet(f"font-size:11pt;font-weight:bold;color:{T.TEXT};background:transparent;")
         self._btn_puit = QPushButton("🧮  Calculer PUIT")
         self._btn_puit.setStyleSheet(
-            f"QPushButton{{background:{T.ORANGE};color:white;border:none;border-radius:3px;"
+            f"QPushButton{{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 {T.GRAD1},stop:1 {T.GRAD2});color:white;border:none;border-radius:6px;"
             f"padding:6px 12px;font-weight:bold;font-size:9pt;}}"
-            f"QPushButton:hover{{background:{T.ORANGE_L};}}")
+            f"QPushButton:hover{{background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 {T.GRAD1},stop:1 {T.GRAD2});}}")
         self._btn_puit.clicked.connect(self._toggle_puit)
 
         self._btn_detach = QPushButton("⎋")
@@ -360,7 +360,7 @@ class RunesTab(QWidget):
         self._btn_detach.setFixedSize(32, 32)
         self._btn_detach.setStyleSheet(
             f"QPushButton{{background:{T.BG_DARK};color:{T.HINT};"
-            f"border:1px solid {T.BORDER};border-radius:3px;font-size:11pt;}}"
+            f"border:1px solid {T.BORDER};border-radius:6px;font-size:11pt;}}"
             f"QPushButton:hover{{background:{T.ORANGE};color:white;border-color:{T.ORANGE};}}")
         self._btn_detach.clicked.connect(self._detach_puit)
         self._btn_detach.hide()  # visible seulement quand puit ouvert
@@ -423,10 +423,10 @@ class RunesTab(QWidget):
         self._puit_panel.setSizePolicy(sp)
         self._puit_panel.setMaximumHeight(16777215 if self._puit_visible else 0)
         self._btn_puit.setText("✕  Fermer Puit" if self._puit_visible else "🧮  Calculer PUIT")
-        col = '#8c4038' if self._puit_visible else T.ORANGE
+        col = 'T.RED' if self._puit_visible else T.ORANGE
         hov = '#9e4840' if self._puit_visible else T.ORANGE_L
         self._btn_puit.setStyleSheet(
-            f"QPushButton{{background:{col};color:white;border:none;border-radius:3px;"
+            f"QPushButton{{background:{col};color:white;border:none;border-radius:6px;"
             f"padding:6px 12px;font-weight:bold;font-size:9pt;}}"
             f"QPushButton:hover{{background:{hov};}}")
         self._apply_height()
@@ -460,7 +460,7 @@ class RunesTab(QWidget):
         self._btn_detach.hide()
         self._btn_puit.setText("✕  Fermer Puit")
         self._btn_puit.setStyleSheet(
-            f"QPushButton{{background:#8c4038;color:white;border:none;border-radius:3px;"
+            f"QPushButton{{background:#8c4038;color:white;border:none;border-radius:6px;"
             f"padding:6px 12px;font-weight:bold;font-size:9pt;}}"
             f"QPushButton:hover{{background:#9e4840;}}")
         self._apply_height()
@@ -492,7 +492,7 @@ class RunesTab(QWidget):
         self._btn_detach.setVisible(True)
         self._btn_puit.setText("✕  Fermer Puit")
         self._btn_puit.setStyleSheet(
-            f"QPushButton{{background:#8c4038;color:white;border:none;border-radius:3px;"
+            f"QPushButton{{background:#8c4038;color:white;border:none;border-radius:6px;"
             f"padding:6px 12px;font-weight:bold;font-size:9pt;}}"
             f"QPushButton:hover{{background:#9e4840;}}")
         self._apply_height()

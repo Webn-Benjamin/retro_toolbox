@@ -12,7 +12,7 @@ from tabs.accounts.window_manager import (
 )
 
 
-def _lbl(txt, color=None, sz="8.5pt", bold=False, italic=False):
+def _lbl(txt, color=None, sz="9pt", bold=False, italic=False):
     l = QLabel(txt)
     ss = f"background:transparent;font-size:{sz};"
     if color:  ss += f"color:{color};"
@@ -52,10 +52,14 @@ class _CharRow(QFrame):
         else:
             bg = T.SURFACE
 
+        border_l = f"border-left:3px solid {T.ORANGE};" if (is_active and not hl) else ""
+        border_drag = f"border-left:3px solid {T.GOLD};" if hl else ""
         self.setStyleSheet(
-            f"QFrame{{background:{bg};border:none;"
-            f"{'border-left:3px solid #5a9a5a;' if is_active and not hl else ''}}}"
-            f"QFrame:hover{{background:{T.SURFACE2};}}")
+            f"QFrame{{background:{bg};{border_l}{border_drag}"
+            f"border-bottom:1px solid {T.BORDER};}}"
+            f"QFrame:hover{{background:{T.SURFACE2};}}"
+            f"QFrame QLabel{{border:none;background:transparent;}}"
+            f"QFrame QPushButton{{border:none;}}")
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(8, 7, 8, 7)
@@ -71,14 +75,14 @@ class _CharRow(QFrame):
         hdl.setCursor(Qt.CursorShape.SizeAllCursor)
         hdl.setFixedWidth(14)
 
-        rang = _lbl(f"{idx + 1}.", T.HINT, "9.5pt")
+        rang = _lbl(f"{idx + 1}.", T.HINT, "10pt")
         rang.setFixedWidth(20)
 
         name_color = T.ORANGE if hl else ('#7ab87a' if is_active and not hl else (T.RED if is_skip else T.TEXT))
         lname = QLabel(win.pseudo)
         lname.setStyleSheet(
             f"color:{name_color};background:transparent;"
-            f"font-weight:bold;font-size:9.5pt;"
+            f"font-weight:bold;font-size:10pt;"
             + ("text-decoration:line-through;" if is_skip else ""))
 
         if is_active and not hl:
@@ -110,14 +114,14 @@ class _CharRow(QFrame):
 
         btn_m = _ibtn(
             "★ Retirer principal" if is_main else "☆ Définir principal",
-            f"rgba(217,121,31,.18)" if is_main else T.BG_DARK,
+            f"rgba(217,121,31,45)" if is_main else T.BG_DARK,
             T.ORANGE if is_main else T.HINT, T.ORANGE)
         btn_m.clicked.connect(lambda: panel._set_main(win.pseudo))
         r2.addWidget(btn_m)
 
         btn_s = _ibtn(
             "⊗ Réintégrer" if is_skip else "○ Exclure",
-            f"rgba(140,64,56,.18)" if is_skip else T.BG_DARK,
+            f"rgba(140,64,56,45)" if is_skip else T.BG_DARK,
             T.RED if is_skip else T.HINT, T.RED)
         btn_s.clicked.connect(lambda: panel._toggle_skip(win.pseudo))
         r2.addWidget(btn_s)
@@ -200,7 +204,7 @@ class CharactersPanel(QWidget):
         fv = QVBoxLayout(ftr); fv.setContentsMargins(10,5,10,5); fv.setSpacing(4)
         fv.addWidget(_lbl(
             "⠿ Glisse pour réordonner  ·  ★ = principal  ·  ○ = exclure",
-            T.HINT, "8.5pt", italic=True))
+            T.HINT, "9pt", italic=True))
         root.addWidget(ftr)
 
         # ── Bouton barre des tâches — AU DESSUS de profils ───
@@ -208,9 +212,12 @@ class CharactersPanel(QWidget):
         btn_save = QPushButton("🖥  Appliquer l'ordre dans la barre des tâches")
         btn_save.setFixedHeight(34)
         btn_save.setStyleSheet(
-            f"QPushButton{{background:{T.ORANGE};color:white;border:none;"
-            f"padding:4px 10px;font-size:9.5pt;font-weight:bold;}}"
-            f"QPushButton:hover{{background:{T.ORANGE_L};}}")
+            f"QPushButton{{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,"
+            f"stop:0 {T.GRAD1},stop:1 {T.GRAD2});color:white;border:none;"
+            f"padding:4px 10px;font-size:10pt;font-weight:700;"
+            f"border-radius:8px;}}"
+            f"QPushButton:hover{{background:qlineargradient(x1:0,y1:0,x2:0,y2:1,"
+            f"stop:0 {T.GRAD1},stop:1 {T.GRAD2});}}")
         btn_save.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_save.clicked.connect(self._save_order)
         root.addWidget(btn_save)
@@ -220,7 +227,7 @@ class CharactersPanel(QWidget):
         prof_frame.setStyleSheet(f"background:{T.BG_DARK};border:none;")
         pl = QVBoxLayout(prof_frame); pl.setContentsMargins(8,8,8,8); pl.setSpacing(6)
 
-        pl.addWidget(_lbl("📋 Profils d'ordre", T.TEXT, "9.5pt", bold=True))
+        pl.addWidget(_lbl("📋 Profils d'ordre", T.TEXT, "10pt", bold=True))
 
         # ComboBox profils
         self._profile_combo = QComboBox()
@@ -237,16 +244,21 @@ class CharactersPanel(QWidget):
         row_ap = QHBoxLayout(); row_ap.setSpacing(5)
         btn_apply_prof = QPushButton("▶  Appliquer")
         btn_del_prof   = QPushButton("✕  Supprimer")
-        for btn, bg, fg in [
-            (btn_apply_prof, T.ORANGE, "white"),
-            (btn_del_prof,   T.BG_DARK, T.RED),
+        for btn, bg, fg, hov, radius in [
+            (btn_apply_prof, "grad", "white",  "grad", 8),
+            (btn_del_prof,   T.BG_DARK, T.RED, T.RED, 8),
         ]:
             btn.setFixedHeight(30)
-            hov = T.ORANGE_L if bg == T.ORANGE else T.RED
-            btn.setStyleSheet(
-                f"QPushButton{{background:{bg};color:{fg};border:none;"
-                f"padding:4px 10px;font-size:9pt;font-weight:bold;}}"
-                f"QPushButton:hover{{background:{hov};color:white;}}")
+            if bg == "grad":
+                btn.setStyleSheet(
+                    f"QPushButton{{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,"
+                    f"stop:0 {T.GRAD1},stop:1 {T.GRAD2});color:white;border:none;"
+                    f"padding:4px 10px;font-size:9pt;font-weight:700;border-radius:{radius}px;}}")
+            else:
+                btn.setStyleSheet(
+                    f"QPushButton{{background:{bg};color:{fg};border:1px solid {T.BORDER};"
+                    f"padding:4px 10px;font-size:9pt;font-weight:700;border-radius:{radius}px;}}"
+                    f"QPushButton:hover{{background:{hov};color:white;border:none;}}")
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             row_ap.addWidget(btn)
         pl.addLayout(row_ap)
@@ -255,9 +267,12 @@ class CharactersPanel(QWidget):
         btn_save_prof = QPushButton("💾  Nommer et sauvegarder cet ordre")
         btn_save_prof.setFixedHeight(32)
         btn_save_prof.setStyleSheet(
-            f"QPushButton{{background:{T.GREEN};color:white;border:none;"
-            f"padding:4px 10px;font-size:9.5pt;font-weight:bold;}}"
-            f"QPushButton:hover{{background:#6e9428;}}")
+            f"QPushButton{{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,"
+            f"stop:0 {T.GRAD1},stop:1 {T.GRAD2});color:white;border:none;"
+            f"padding:4px 10px;font-size:10pt;font-weight:700;"
+            f"border-radius:8px;}}"
+            f"QPushButton:hover{{background:qlineargradient(x1:0,y1:0,x2:0,y2:1,"
+            f"stop:0 {T.GRAD1},stop:1 {T.GRAD2});}}")
         btn_save_prof.setCursor(Qt.CursorShape.PointingHandCursor)
         pl.addWidget(btn_save_prof)
 
@@ -307,7 +322,7 @@ class CharactersPanel(QWidget):
 
         if not self._windows:
             msg = _lbl("Aucune fenêtre Dofus détectée.\nOuvre le jeu puis clique 🔄",
-                       T.HINT, "9.5pt", italic=True)
+                       T.HINT, "10pt", italic=True)
             msg.setAlignment(Qt.AlignmentFlag.AlignCenter)
             msg.setContentsMargins(0, 30, 0, 30)
             self._clay.insertWidget(0, msg)
@@ -532,7 +547,7 @@ class CharactersPanel(QWidget):
         lay = QVBoxLayout(dlg); lay.setContentsMargins(16,14,16,14); lay.setSpacing(10)
 
         lbl = QLabel("Nom du profil :")
-        lbl.setStyleSheet(f"background:transparent;color:{T.TEXT};font-size:9.5pt;font-weight:bold;")
+        lbl.setStyleSheet(f"background:transparent;color:{T.TEXT};font-size:10pt;font-weight:bold;")
         lay.addWidget(lbl)
 
         inp = QLineEdit()
@@ -540,7 +555,7 @@ class CharactersPanel(QWidget):
         inp.setFixedHeight(32)
         inp.setStyleSheet(
             f"QLineEdit{{background:{T.SURFACE};color:{T.TEXT};border:none;"
-            f"padding:4px 8px;font-size:9.5pt;}}"
+            f"padding:4px 8px;font-size:10pt;}}"
             f"QLineEdit:focus{{border-bottom:2px solid {T.ORANGE};}}")
         lay.addWidget(inp)
 
@@ -548,9 +563,9 @@ class CharactersPanel(QWidget):
         btn_ok = QPushButton("💾 Sauvegarder")
         btn_ok.setFixedHeight(32)
         btn_ok.setStyleSheet(
-            f"QPushButton{{background:{T.ORANGE};color:white;border:none;"
+            f"QPushButton{{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 {T.GRAD1},stop:1 {T.GRAD2});color:white;border:none;"
             f"padding:4px 12px;font-size:9pt;font-weight:bold;}}"
-            f"QPushButton:hover{{background:{T.ORANGE_L};}}")
+            f"QPushButton:hover{{background:qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 {T.GRAD1},stop:1 {T.GRAD2});}}")
         btn_ok.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_cancel = QPushButton("Annuler")
         btn_cancel.setFixedHeight(32)
@@ -620,8 +635,32 @@ class CharactersPanel(QWidget):
         self.char_switched.emit(active[nxt].hwnd)
 
     def set_active(self, pseudo: str | None):
+        if self._active_pseudo == pseudo:
+            return  # pas de changement, rien à faire
+        old_pseudo = self._active_pseudo
         self._active_pseudo = pseudo
-        self._redraw()
+        # Mettre à jour uniquement les lignes concernées (pas de redraw complet)
+        for i in range(self._clay.count()):
+            item = self._clay.itemAt(i)
+            row = item.widget() if item else None
+            if not row or not hasattr(row, '_win'):
+                continue
+            p = row._win.pseudo
+            if p == pseudo or p == old_pseudo:
+                is_active = (p == pseudo)
+                hl = (self._drag_idx == row._idx)
+                if hl:
+                    bg = '#2a1e0e'
+                elif is_active:
+                    bg = '#1a2a1a'
+                else:
+                    bg = T.SURFACE
+                border_l = "border-left:3px solid #5a9a5a;" if (is_active and not hl) else ""
+                row.setStyleSheet(
+                    f"QFrame{{background:{bg};border:none;{border_l}}}"
+                    f"QFrame:hover{{background:{T.SURFACE2};}}"
+                    f"QFrame QLabel{{border:none;background:transparent;}}"
+                    f"QFrame QPushButton{{border:none;}}")
 
     def go_main(self):
         if not self._main:

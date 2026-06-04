@@ -44,14 +44,14 @@ CLASSES = [
     "Cra",      "Enutrof",  "Pandawa",
     "Sacrieur", "Iop",      "Féca",
     "Ecaflip",  "Eniripsa", "Xélor",
-    "Sram",     "Sadida",   "Autre",
+    "Sram",     "Sadida",   "Osamodas",
 ]
 
 CLASS_COLORS = {
     "Cra": "#4e9458", "Enutrof": "#b8962a", "Pandawa": "#7b4e96",
-    "Sacrieur": "#8c4038", "Iop": "#4e6e96", "Féca": "#4e8a96",
-    "Ecaflip": "#4e8a7a", "Eniripsa": "#c4952a", "Xélor": "#6a6a9a",
-    "Sram": "#5a5a5a", "Sadida": "#5e8020", "Crâ": "#7a5a20",
+    "Sacrieur": "#e53935", "Iop": "#1e88e5", "Féca": "#4e8a96",
+    "Ecaflip": "#4e8a7a", "Eniripsa": "#f59520", "Xélor": "#6a6a9a",
+    "Sram": "#5a5a5a", "Sadida": "#00b86e", "Osamodas": "#6b8e23", "Crâ": "#7a5a20",
 }
 
 # Mapping classe → nom de fichier image (dans pictures/classes/)
@@ -67,6 +67,7 @@ CLASS_IMG = {
     "Xélor":    "xelor.png",
     "Sram":     "sram.png",
     "Sadida":   "sadida.png",
+    "Osamodas": "osamodas.png",
     "Crâ":      "cra.png",  # alias
 }
 
@@ -152,7 +153,7 @@ class SlotWidget(QFrame):
         self._val_lbl = QLabel(value if value else "")
         self._val_lbl.setStyleSheet(
             "background:transparent;border:none;"
-            f"font-family:'Segoe UI';font-size:9.5pt;"
+            f"font-family:'Segoe UI';font-size:10pt;"
             + (f"color:{T.TEXT};font-weight:bold;" if value else f"color:{T.HINT};"))
         self._val_lbl.setWordWrap(False)
         lay.addWidget(self._val_lbl)
@@ -176,7 +177,7 @@ class SlotWidget(QFrame):
         self._val_lbl.setText(value if value else "")
         self._val_lbl.setStyleSheet(
             "background:transparent;border:none;"
-            f"font-family:'Segoe UI';font-size:9.5pt;"
+            f"font-family:'Segoe UI';font-size:10pt;"
             + (f"color:{T.TEXT};font-weight:bold;" if value else f"color:{T.HINT};"))
         self._update_style()
 
@@ -242,7 +243,7 @@ class CharWidget(QFrame):
         il.addWidget(_lbl(self._char.get("pseudo","?"), T.TEXT, "11pt", bold=True))
         sub = f"{cls} · Niv. {self._char.get('niveau','?')}"
         if self._char.get("serveur"): sub += f" · {self._char['serveur']}"
-        il.addWidget(_lbl(sub, T.HINT, "8.5pt"))
+        il.addWidget(_lbl(sub, T.HINT, "9pt"))
         h_lay.addWidget(info, 1)
 
         # Kamas + Pods
@@ -253,7 +254,7 @@ class CharWidget(QFrame):
         sl = QHBoxLayout(stats); sl.setContentsMargins(0,0,0,0); sl.setSpacing(10)
         q1 = QWidget(); q1.setStyleSheet("background:transparent;")
         ql1 = QVBoxLayout(q1); ql1.setContentsMargins(0,0,0,0); ql1.setSpacing(0)
-        ql1.addWidget(_lbl(km_str, T.GOLD, "9.5pt", bold=True))
+        ql1.addWidget(_lbl(km_str, T.GOLD, "10pt", bold=True))
         ql1.addWidget(_lbl("Kamas", T.HINT, "7pt"))
         sl.addWidget(q1)
         h_lay.addWidget(stats)
@@ -301,7 +302,7 @@ class CharWidget(QFrame):
             f"QFrame{{background:{T.SURFACE};border:none;}}")
         eq_lay = QVBoxLayout(eq_frame)
         eq_lay.setContentsMargins(8,7,8,7); eq_lay.setSpacing(4)
-        eq_lay.addWidget(_lbl("🛡 Équipement", T.HINT, "8.5pt", bold=True))
+        eq_lay.addWidget(_lbl("🛡 Équipement", T.HINT, "9pt", bold=True))
 
         equip = self._char.get("equip", {})
         def add_row(keys):
@@ -321,7 +322,7 @@ class CharWidget(QFrame):
         add_row(["familier", "drago"])
 
         # Dofus section — titre simple
-        dof_sep = _lbl("🥚 Dofus", T.HINT, "8.5pt", bold=True)
+        dof_sep = _lbl("🥚 Dofus", T.HINT, "9pt", bold=True)
         eq_lay.addWidget(dof_sep)
 
         dof1 = QHBoxLayout(); dof1.setSpacing(8)
@@ -347,7 +348,7 @@ class CharWidget(QFrame):
             f"QFrame{{background:{T.SURFACE};border:none;}}")
         nf_lay = QVBoxLayout(notes_frame)
         nf_lay.setContentsMargins(8,6,8,6); nf_lay.setSpacing(3)
-        nf_lay.addWidget(_lbl("📝 Notes", T.HINT, "8.5pt", bold=True))
+        nf_lay.addWidget(_lbl("📝 Notes", T.HINT, "9pt", bold=True))
         self._notes_lbl = _lbl(
             self._char.get("notes","") or "Aucune note.",
             T.SUBTEXT, "9pt", italic=True, wrap=True)
@@ -437,7 +438,7 @@ class AccountWidget(QFrame):
         n = len(self._acc.get("chars",[]))
         badge = QLabel(f"{n} perso{'s' if n>1 else ''}")
         badge.setStyleSheet(
-            f"background:{T.ORANGE};color:white;font-size:6.5pt;font-weight:bold;"
+            f"background:{T.ORANGE};color:white;font-size:7pt;font-weight:bold;"
             f"padding:2px 5px;")
         hl.addWidget(badge)
 
@@ -480,7 +481,7 @@ class AccountWidget(QFrame):
         cp_lay = QHBoxLayout(self._confirm_panel)
         cp_lay.setContentsMargins(10, 6, 10, 6); cp_lay.setSpacing(8)
         name = self._acc.get("name","?")
-        cp_lay.addWidget(_lbl(f"Supprimer « {name} » ?", T.TEXT, "8.5pt"))
+        cp_lay.addWidget(_lbl(f"Supprimer « {name} » ?", T.TEXT, "9pt"))
         cp_lay.addStretch()
         btn_yes = QPushButton("✔ Oui")
         btn_yes.setStyleSheet(
@@ -508,7 +509,7 @@ class AccountWidget(QFrame):
         btn_add.setStyleSheet(
             f"QPushButton{{background:transparent;color:{T.HINT};border:none;"
             f"border-top:1px solid {T.BORDER};padding:6px 10px;"
-            f"text-align:left;font-size:7.5pt;}}"
+            f"font-size:8pt;}}"
             f"QPushButton:hover{{color:{T.ORANGE};background:{T.SURFACE2};}}")
         btn_add.clicked.connect(self._add_char)
         lay.addWidget(btn_add)
@@ -671,12 +672,12 @@ class CharDialog(QDialog):
         def field(label, key, placeholder=""):
             row = QWidget(); row.setStyleSheet("background:transparent;")
             rl = QVBoxLayout(row); rl.setContentsMargins(0,0,0,0); rl.setSpacing(2)
-            rl.addWidget(_lbl(label, T.HINT, "7.5pt"))
+            rl.addWidget(_lbl(label, T.HINT, "8pt"))
             inp = QLineEdit(str(self._data.get(key,"") or ""))
             inp.setPlaceholderText(placeholder)
             inp.setStyleSheet(
                 f"QLineEdit{{background:{T.SURFACE};border:none;"
-                f"padding:4px 7px;color:{T.TEXT};font-size:8.5pt;}}"
+                f"padding:4px 7px;color:{T.TEXT};font-size:9pt;}}"
                 f"QLineEdit:focus{{border-color:{T.ORANGE};}}")
             rl.addWidget(inp)
             lay.addWidget(row)
@@ -687,7 +688,7 @@ class CharDialog(QDialog):
         # Serveur — liste fixe
         srv_row = QWidget(); srv_row.setStyleSheet("background:transparent;")
         sl2 = QVBoxLayout(srv_row); sl2.setContentsMargins(0,0,0,0); sl2.setSpacing(2)
-        sl2.addWidget(_lbl("Serveur", T.HINT, "7.5pt"))
+        sl2.addWidget(_lbl("Serveur", T.HINT, "8pt"))
         self._serveur = QComboBox()
         self._serveur.addItems(["Boune", "Allisteria", "Fallanster"])
         cur_srv = self._data.get("serveur", "Boune")
@@ -695,7 +696,7 @@ class CharDialog(QDialog):
             self._serveur.setCurrentText(cur_srv)
         self._serveur.setStyleSheet(
             f"QComboBox{{background:{T.SURFACE};border:none;"
-            f"padding:4px 7px;color:{T.TEXT};font-size:8.5pt;}}"
+            f"padding:4px 7px;color:{T.TEXT};font-size:9pt;}}"
             f"QComboBox QAbstractItemView{{background:{T.SURFACE};"
             f"selection-background-color:{T.ORANGE};color:{T.TEXT};}}")
         sl2.addWidget(self._serveur)
@@ -705,7 +706,7 @@ class CharDialog(QDialog):
         # Classe — bouton qui ouvre le picker d'images
         cls_row = QWidget(); cls_row.setStyleSheet("background:transparent;")
         cl = QVBoxLayout(cls_row); cl.setContentsMargins(0,0,0,0); cl.setSpacing(2)
-        cl.addWidget(_lbl("Classe", T.HINT, "7.5pt"))
+        cl.addWidget(_lbl("Classe", T.HINT, "8pt"))
         self._selected_cls = self._data.get("classe","Cra")
         cls_pick_row = QHBoxLayout(); cls_pick_row.setSpacing(6)
         self._cls_avatar = QLabel()
@@ -715,7 +716,7 @@ class CharDialog(QDialog):
         self._cls_btn.setStyleSheet(
             f"QPushButton{{background:{T.SURFACE};color:{T.TEXT};"
             f"border:none;"
-            f"padding:4px 10px;font-size:8.5pt;text-align:left;}}"
+            f"padding:4px 10px;font-size:9pt;}}"
             f"QPushButton:hover{{border-color:{T.ORANGE};}}")
         self._cls_btn.clicked.connect(self._pick_class)
         cls_pick_row.addWidget(self._cls_avatar)
@@ -727,12 +728,12 @@ class CharDialog(QDialog):
         # Notes
         notes_row = QWidget(); notes_row.setStyleSheet("background:transparent;")
         nl = QVBoxLayout(notes_row); nl.setContentsMargins(0,0,0,0); nl.setSpacing(2)
-        nl.addWidget(_lbl("Notes", T.HINT, "7.5pt"))
+        nl.addWidget(_lbl("Notes", T.HINT, "8pt"))
         self._notes = QLineEdit(self._data.get("notes","") or "")
         self._notes.setPlaceholderText("Objectif, stuff cible…")
         self._notes.setStyleSheet(
             f"QLineEdit{{background:{T.SURFACE};border:none;"
-            f"padding:4px 7px;color:{T.TEXT};font-size:8.5pt;}}"
+            f"padding:4px 7px;color:{T.TEXT};font-size:9pt;}}"
             f"QLineEdit:focus{{border-color:{T.ORANGE};}}")
         nl.addWidget(self._notes)
         lay.addWidget(notes_row)
@@ -835,7 +836,7 @@ class DashboardTab(QWidget):
         btn_add_acc = QPushButton("＋  Ajouter un compte")
         btn_add_acc.setStyleSheet(
             f"QPushButton{{background:transparent;color:{T.ORANGE};"
-            f"border:none;font-size:8.5pt;font-weight:bold;}}"
+            f"border:none;font-size:9pt;font-weight:bold;}}"
             f"QPushButton:hover{{color:{T.ORANGE_L};}}")
         btn_add_acc.clicked.connect(self._add_account)
         fl.addWidget(btn_add_acc)

@@ -131,7 +131,7 @@ class WelcomeDialog(QWidget):
             "③ Retro Toolbox y créera automatiquement son fichier de données")
         steps.setWordWrap(True)
         steps.setStyleSheet(
-            f"color:{theme.SUBTEXT};font-size:9pt;line-height:1.6;"
+            f"color:{theme.SUBTEXT};font-size:9pt;"
             f"background:transparent;")
         steps.setTextFormat(Qt.TextFormat.RichText)
         card_lay.addWidget(steps)
@@ -241,7 +241,7 @@ class MainWindow(QMainWindow):
 
         lay.addWidget(lbl(f"🎮 Version {latest} disponible !", theme.TEXT, "10pt", bold=True))
         if notes:
-            n = lbl(notes, theme.SUBTEXT, "8.5pt", italic=True)
+            n = lbl(notes, theme.SUBTEXT, "9pt", italic=True)
             n.setWordWrap(True); lay.addWidget(n)
 
         bar = QProgressBar()
@@ -264,7 +264,7 @@ class MainWindow(QMainWindow):
         btn_skip.setStyleSheet(
             f"QPushButton{{background:{theme.BG_DARK};color:{theme.SUBTEXT};"
             f"border:1px solid {theme.BORDER};padding:7px 12px;"
-            f"font-size:8.5pt;}}")
+            f"font-size:9pt;}}")
         btn_row.addWidget(btn_update); btn_row.addWidget(btn_skip)
         lay.addLayout(btn_row)
 
@@ -360,22 +360,37 @@ class MainWindow(QMainWindow):
 
         # Titlebar
         title_bar = QFrame()
-        title_bar.setFixedHeight(44)
-        title_bar.setStyleSheet(f"background:{theme.BG_DARK};border-bottom:1px solid {theme.BORDER};")
+        title_bar.setFixedHeight(46)
+        title_bar.setStyleSheet(
+            f"QFrame{{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,"
+            f"stop:0 {theme.GRAD1},stop:1 {theme.GRAD2});"
+            f"border:none;}}"
+            f"QFrame QLabel{{background:transparent;color:white;}}"
+            f"QFrame QPushButton{{border:none;}}")
         tb_lay = QHBoxLayout(title_bar)
-        tb_lay.setContentsMargins(14, 0, 12, 0)
+        tb_lay.setContentsMargins(14, 0, 12, 0); tb_lay.setSpacing(8)
+
+        icon_lbl = QLabel("🎮")
+        icon_lbl.setFixedSize(28, 28)
+        icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        icon_lbl.setStyleSheet(
+            "background:rgba(255,255,255,51);border-radius:7px;"
+            "font-size:13pt;color:white;")
+        tb_lay.addWidget(icon_lbl)
 
         lbl = QLabel("Retro Toolbox")
-        lbl.setStyleSheet(f"font-size:12pt;font-weight:bold;color:{theme.TEXT};background:transparent;")
+        lbl.setStyleSheet("font-size:12pt;font-weight:bold;color:white;"
+                          "background:transparent;")
         tb_lay.addWidget(lbl)
         tb_lay.addStretch()
 
         btn_discord = QPushButton("💬 Discord")
-        btn_discord.setFixedHeight(30)
+        btn_discord.setFixedHeight(28)
         btn_discord.setStyleSheet(
-            f"QPushButton{{background:#5865F2;color:white;border:none;"
-            f"padding:3px 12px;font-size:8.5pt;font-weight:bold;border-radius:4px;}}"
-            f"QPushButton:hover{{background:#4752c4;}}")
+            "QPushButton{background:rgba(255,255,255,51);color:white;"
+            "border:1px solid rgba(255,255,255,89);border-radius:14px;"
+            "padding:3px 12px;font-size:9pt;font-weight:700;}"
+            "QPushButton:hover{background:rgba(255,255,255,76);}")
         btn_discord.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_discord.setToolTip("Rejoindre le serveur Discord Retro Toolbox")
         btn_discord.clicked.connect(lambda: __import__('webbrowser').open(
@@ -421,7 +436,7 @@ class MainWindow(QMainWindow):
         navbar = QWidget()
         navbar.setObjectName("navbar")
         navbar.setFixedHeight(60)
-        navbar.setStyleSheet(f"background:{theme.BG_DARK};border-top:1px solid {theme.BORDER};")
+        navbar.setStyleSheet(f"QWidget{{background:{theme.SURFACE};border-top:1px solid {theme.BORDER};}}")
         nb_lay = QHBoxLayout(navbar)
         nb_lay.setContentsMargins(0, 0, 0, 0)
         nb_lay.setSpacing(0)
@@ -461,8 +476,8 @@ class MainWindow(QMainWindow):
             btn = QPushButton(f"{icon}  {label}")
             btn.setStyleSheet(
                 f"QPushButton{{background:transparent;color:{theme.TEXT};"
-                f"border:none;border-radius:3px;padding:8px 14px;"
-                f"text-align:left;font-size:10pt;}}"
+                f"border:none;border-radius:6px;padding:8px 14px;"
+                f"font-size:10pt;}}"
                 f"QPushButton:hover{{background:{theme.BG_DARK};color:{theme.ORANGE};}}")
             btn.clicked.connect(lambda _, i=idx: (self._more_menu.hide(), self._switch_tab(i)))
             mm_lay.addWidget(btn)

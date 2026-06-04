@@ -81,7 +81,7 @@ class OverlayTab(QWidget):
         ("#d4c832", "Jaune"),
         ("#5cb85c", "Vert"),
         ("#5bc0de", "Bleu clair"),
-        ("#4e6e96", "Bleu"),
+        ("T.BLUE", "Bleu"),
         ("#9b59b6", "Violet"),
         ("#ffffff", "Blanc"),
     ]
@@ -162,16 +162,16 @@ class OverlayTab(QWidget):
         btn_add_map = QPushButton("＋  Nouvelle map")
         btn_add_map.setStyleSheet(
             f"QPushButton{{background:{T.BG_DARK};color:{T.SUBTEXT};"
-            f"border:1px solid {T.BORDER};border-radius:3px;"
-            f"padding:4px 8px;font-size:7.5pt;font-weight:bold;}}"
+            f"border:1px solid {T.BORDER};border-radius:6px;"
+            f"padding:4px 8px;font-size:8pt;font-weight:bold;}}"
             f"QPushButton:hover{{border-color:{T.GREEN};color:{T.GREEN};}}")
         btn_add_map.clicked.connect(self._add_map)
 
         btn_del_map = QPushButton("✕  Supprimer")
         btn_del_map.setStyleSheet(
             f"QPushButton{{background:{T.BG_DARK};color:{T.SUBTEXT};"
-            f"border:1px solid {T.BORDER};border-radius:3px;"
-            f"padding:4px 8px;font-size:7.5pt;font-weight:bold;}}"
+            f"border:1px solid {T.BORDER};border-radius:6px;"
+            f"padding:4px 8px;font-size:8pt;font-weight:bold;}}"
             f"QPushButton:hover{{border-color:{T.RED};color:{T.RED};}}")
         btn_del_map.clicked.connect(self._del_map)
 
@@ -204,10 +204,10 @@ class OverlayTab(QWidget):
         self._slider.setRange(10, 80)
         self._slider.setValue(self._active_size)
         self._slider.setStyleSheet(
-            f"QSlider::groove:horizontal{{height:4px;background:{T.BORDER};border-radius:2px;}}"
+            f"QSlider::groove:horizontal{{height:4px;background:{T.BORDER};border-radius:4px;}}"
             f"QSlider::handle:horizontal{{width:14px;height:14px;margin:-5px 0;"
             f"background:{T.ORANGE};border-radius:7px;}}"
-            f"QSlider::sub-page:horizontal{{background:{T.ORANGE};border-radius:2px;}}")
+            f"QSlider::sub-page:horizontal{{background:{T.ORANGE};border-radius:4px;}}")
         self._size_lbl = QLabel(f"{self._active_size}px")
         self._size_lbl.setStyleSheet(
             f"color:{T.ORANGE};font-size:9pt;font-weight:bold;background:transparent;")
@@ -280,12 +280,12 @@ class OverlayTab(QWidget):
         inp.setPlaceholderText("Ex: ctrl+shift+a")
         inp.setStyleSheet(
             f"QLineEdit{{background:{T.SURFACE};border:1px solid {T.BORDER};"
-            f"border-radius:3px;padding:3px 6px;color:{T.TEXT};font-size:8pt;}}"
+            f"border-radius:6px;padding:3px 6px;color:{T.TEXT};font-size:8pt;}}"
             f"QLineEdit:focus{{border-color:{T.ORANGE};}}")
         btn = QPushButton("✔"); btn.setFixedWidth(26)
         btn.setStyleSheet(
             f"QPushButton{{background:{T.GREEN};color:white;border:none;"
-            f"border-radius:3px;padding:3px;font-size:9pt;}}"
+            f"border-radius:6px;padding:3px;font-size:9pt;}}"
             f"QPushButton:hover{{background:#6e9428;}}")
         btn.clicked.connect(lambda _, k=key, i=inp: self._save_sc(k, i.text().strip()))
         row.addWidget(inp, 1); row.addWidget(btn)
@@ -307,10 +307,10 @@ class OverlayTab(QWidget):
     def _toggle_style(self, on):
         if on:
             return (f"QPushButton{{background:{T.GREEN};color:white;border:none;"
-                    f"border-radius:3px;padding:4px 12px;font-size:9pt;font-weight:bold;}}"
+                    f"border-radius:6px;padding:4px 12px;font-size:9pt;font-weight:bold;}}"
                     f"QPushButton:hover{{background:#6e9428;}}")
         return (f"QPushButton{{background:{T.BG_DARK};color:{T.HINT};"
-                f"border:1px solid {T.BORDER};border-radius:3px;"
+                f"border:1px solid {T.BORDER};border-radius:6px;"
                 f"padding:4px 12px;font-size:9pt;font-weight:bold;}}"
                 f"QPushButton:hover{{border-color:{T.ORANGE};}}")
 
@@ -532,11 +532,11 @@ def _lbl(text, color=None, size="9pt", bold=False):
 
 def _nav_btn_ss():
     return (f"QPushButton{{background:{T.BG_DARK};color:{T.SUBTEXT};"
-            f"border:1px solid {T.BORDER};border-radius:3px;font-size:9pt;}}"
+            f"border:1px solid {T.BORDER};border-radius:6px;font-size:9pt;}}"
             f"QPushButton:hover{{border-color:{T.ORANGE};color:{T.ORANGE};}}")
 
 def _action_btn_ss(bg, fg, hov):
     return (f"QPushButton{{background:{bg};color:{fg};"
-            f"border:1px solid {T.BORDER};border-radius:3px;"
+            f"border:1px solid {T.BORDER};border-radius:6px;"
             f"padding:5px 8px;font-size:8pt;font-weight:bold;}}"
             f"QPushButton:hover{{color:{hov};border-color:{hov};}}")

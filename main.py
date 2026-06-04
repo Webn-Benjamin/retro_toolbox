@@ -3,13 +3,31 @@ main.py — Point d'entrée Retro Toolbox PySide6.
 """
 
 import sys
+import traceback
 from PySide6.QtWidgets import QApplication
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, qInstallMessageHandler, QtMsgType
 from main_window import MainWindow
 import theme
 
 
+def _qt_msg_handler(msg_type, context, message):
+    if "Could not parse" in message:
+        print(f"\n{'='*60}")
+        print(f"[QT CSS ERROR] {message}")
+        print(f"  File : {context.file}")
+        print(f"  Line : {context.line}")
+        print(f"  Func : {context.function}")
+        print("  Python traceback:")
+        for line in traceback.format_stack()[:-1]:
+            print("   ", line.strip())
+        print('='*60)
+    else:
+        if msg_type == QtMsgType.QtWarningMsg:
+            print(f"[Qt Warning] {message}")
+
+
 def main():
+    qInstallMessageHandler(_qt_msg_handler)
     app = QApplication(sys.argv)
     app.setApplicationName("Retro Toolbox")
     app.setStyleSheet(theme.QSS)

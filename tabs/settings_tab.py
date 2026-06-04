@@ -1,5 +1,4 @@
-"""tabs/settings_tab.py — Paramètres PySide6."""
-
+"""tabs/settings_tab.py — Paramètres."""
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QFrame, QSlider, QFileDialog
@@ -7,149 +6,149 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 import model, theme
 
+T = theme
+
+def _section(title):
+    l = QLabel(title)
+    l.setStyleSheet(
+        f"background:transparent;color:{T.HINT};font-size:8pt;"
+        f"font-weight:700;")
+    return l
+
+def _card():
+    f = QFrame()
+    f.setStyleSheet(
+        f"QFrame{{background:{T.SURFACE};border:1px solid {T.BORDER};"
+        f"border-radius:10px;}}"
+        f"QLabel{{background:transparent;border:none;}}")
+    return f
+
+def _row(label, widget, lay):
+    r = QHBoxLayout(); r.setSpacing(10)
+    l = QLabel(label)
+    l.setStyleSheet(f"font-size:10pt;color:{T.TEXT};font-weight:600;")
+    r.addWidget(l, 1); r.addWidget(widget)
+    lay.addLayout(r)
 
 class _ThemeSwitch(QWidget):
-    """Toggle switch ☀️/🌙 pour le thème clair/sombre."""
-
-    def __init__(self, dark: bool, on_toggle, parent=None):
+    def __init__(self, dark, on_toggle, parent=None):
         super().__init__(parent)
-        self._dark = dark
-        self._on_toggle = on_toggle
-        self.setFixedSize(90, 28)
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._build()
-
-    def _build(self):
-        from PySide6.QtWidgets import QHBoxLayout
-        lay = QHBoxLayout(self)
-        lay.setContentsMargins(0,0,0,0); lay.setSpacing(0)
-
-        self._sun = QPushButton("☀️  Clair")
+        self._dark = dark; self._on_toggle = on_toggle
+        self.setFixedSize(180, 28)
+        lay = QHBoxLayout(self); lay.setContentsMargins(0,0,0,0); lay.setSpacing(4)
+        self._sun  = QPushButton("☀️  Clair")
         self._moon = QPushButton("🌙  Sombre")
-        for btn in (self._sun, self._moon):
-            btn.setFixedHeight(26)
-            btn.setStyleSheet("")
-        self._sun.setFixedWidth(70)
-        self._moon.setFixedWidth(90)
-        lay.addWidget(self._sun)
-        lay.addWidget(self._moon)
+        self._sun.setFixedHeight(28); self._moon.setFixedHeight(28)
+        self._sun.setFixedWidth(78);  self._moon.setFixedWidth(96)
+        self._sun.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._moon.setCursor(Qt.CursorShape.PointingHandCursor)
+        lay.addWidget(self._sun); lay.addWidget(self._moon)
         self._sun.clicked.connect(lambda: self._set(False))
         self._moon.clicked.connect(lambda: self._set(True))
-        self.setFixedSize(160, 28)
-        self._update_style()
+        self._refresh()
 
     def _set(self, dark):
         if self._dark == dark: return
-        self._dark = dark
-        self._update_style()
-        self._on_toggle(dark)
+        self._dark = dark; self._refresh(); self._on_toggle(dark)
 
-    def _update_style(self):
-        import theme as T
-        active_ss = (f"QPushButton{{background:{T.ORANGE};color:white;border:none;"
-                     f"border-radius:3px;padding:4px 8px;font-size:8pt;font-weight:bold;}}")
-        inactive_ss = (f"QPushButton{{background:{T.BG_DARK};color:{T.HINT};"
-                       f"border:1px solid {T.BORDER};border-radius:3px;"
-                       f"padding:4px 8px;font-size:8pt;font-weight:bold;}}"
-                       f"QPushButton:hover{{color:{T.TEXT};}}")
-        self._sun.setStyleSheet(active_ss if not self._dark else inactive_ss)
-        self._moon.setStyleSheet(active_ss if self._dark else inactive_ss)
+    def _refresh(self):
+        on  = (f"QPushButton{{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,"
+               f"stop:0 {T.GRAD1},stop:1 {T.GRAD2});color:white;border:none;"
+               f"border-radius:6px;font-size:8pt;font-weight:700;}}")
+        off = (f"QPushButton{{background:{T.BG_DARK};color:{T.HINT};"
+               f"border:1px solid {T.BORDER};border-radius:6px;"
+               f"font-size:8pt;font-weight:600;}}"
+               f"QPushButton:hover{{color:{T.TEXT};}}")
+        self._sun.setStyleSheet(on if not self._dark else off)
+        self._moon.setStyleSheet(on if self._dark else off)
 
 
 class SettingsTab(QWidget):
     def __init__(self, data_file_path, on_change_folder, parent=None):
         super().__init__(parent)
-        self._on_change_folder = on_change_folder
-        from PySide6.QtWidgets import QSizePolicy
-        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
+        self._path = data_file_path
+        self._on_change = on_change_folder
         self._build(data_file_path)
 
-    def _build(self, data_file_path):
-        from PySide6.QtWidgets import QSizePolicy
+    def _build(self, path):
         lay = QVBoxLayout(self)
-        lay.setContentsMargins(10, 10, 10, 10)
-        lay.setSpacing(8)
+        lay.setContentsMargins(12, 14, 12, 14); lay.setSpacing(10)
 
-        # Dossier
-        card1 = QFrame(); card1.setObjectName("card")
-        c1 = QVBoxLayout(card1); c1.setContentsMargins(12,10,12,10); c1.setSpacing(6)
-        lbl = QLabel("DOSSIER DES DONNÉES")
-        lbl.setStyleSheet(f"color:{theme.HINT};font-size:7pt;font-weight:bold;letter-spacing:1px;")
-        c1.addWidget(lbl)
-        self._path_lbl = QLabel(data_file_path)
-        self._path_lbl.setStyleSheet(f"color:{theme.ORANGE};font-size:8pt;")
+        # ── Dossier données ───────────────────────────────
+        lay.addWidget(_section("📁  DOSSIER DES DONNÉES"))
+        card1 = _card()
+        c1 = QVBoxLayout(card1); c1.setContentsMargins(14,12,14,12); c1.setSpacing(8)
+        self._path_lbl = QLabel(path)
+        self._path_lbl.setStyleSheet(
+            f"font-size:8pt;color:{T.SUBTEXT};"
+            f"background:{T.SURFACE2};padding:6px 10px;"
+            f"border-radius:6px;")
         self._path_lbl.setWordWrap(True)
         c1.addWidget(self._path_lbl)
-        btn = QPushButton("Changer le dossier"); btn.setObjectName("btn_orange")
-        btn.clicked.connect(self._on_change_folder)
-        c1.addWidget(btn)
+        btn_folder = QPushButton("📂  Changer de dossier")
+        btn_folder.setFixedHeight(32)
+        btn_folder.setStyleSheet(
+            f"QPushButton{{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,"
+            f"stop:0 {T.GRAD1},stop:1 {T.GRAD2});"
+            f"color:white;border:none;border-radius:8px;"
+            f"font-size:9pt;font-weight:700;}}"
+            f"QPushButton:hover{{background:qlineargradient(x1:0,y1:0,x2:0,y2:1,"
+            f"stop:0 {T.GRAD1},stop:1 {T.GRAD2});}}")
+        btn_folder.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_folder.clicked.connect(self._on_change)
+        c1.addWidget(btn_folder)
         lay.addWidget(card1)
 
-        # Seuil
-        card2 = QFrame(); card2.setObjectName("card")
-        c2 = QVBoxLayout(card2); c2.setContentsMargins(12,10,12,10); c2.setSpacing(8)
-        lbl2 = QLabel("ALERTE TIMER")
-        lbl2.setStyleSheet(f"color:{theme.HINT};font-size:7pt;font-weight:bold;letter-spacing:1px;")
-        c2.addWidget(lbl2)
-        hint = QLabel("Le timer passe en rouge après ce délai sans kill ni rare.")
-        hint.setStyleSheet(f"color:{theme.HINT};font-size:8pt;")
-        hint.setWordWrap(True)
-        c2.addWidget(hint)
-
-        row = QHBoxLayout()
-        lbl_s = QLabel("Seuil"); lbl_s.setStyleSheet(f"color:{theme.TEXT};")
-        self._slider = QSlider(Qt.Orientation.Horizontal)
-        self._slider.setRange(1, 60)
-        self._slider.setValue(model.get_alert_threshold() // 60)
-        self._slider.valueChanged.connect(self._on_slider)
-        self._val_lbl = QLabel(f"{self._slider.value()} min")
-        self._val_lbl.setStyleSheet(f"color:{theme.ORANGE};font-weight:bold;")
-        self._val_lbl.setFixedWidth(45)
-        row.addWidget(lbl_s); row.addWidget(self._slider); row.addWidget(self._val_lbl)
+        # ── Alerte Timer ──────────────────────────────────
+        lay.addWidget(_section("⏱  ALERTE TIMER"))
+        card2 = _card()
+        c2 = QVBoxLayout(card2); c2.setContentsMargins(14,12,14,12); c2.setSpacing(8)
+        cfg = model.load_config()
+        val = cfg.get("timer_alert_pct", 80)
+        pct_lbl = QLabel(f"{val}%")
+        pct_lbl.setStyleSheet(
+            f"font-size:11pt;font-weight:700;color:{T.ORANGE};"
+            f"background:{T.SURFACE2};padding:2px 10px;border-radius:6px;")
+        pct_lbl.setFixedWidth(52)
+        pct_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        sl = QSlider(Qt.Orientation.Horizontal)
+        sl.setRange(50, 100); sl.setValue(val)
+        sl.setStyleSheet(
+            f"QSlider::groove:horizontal{{background:{T.BG_DARK};height:4px;border-radius:2px;}}"
+            f"QSlider::handle:horizontal{{background:white;border:2px solid {T.ORANGE};"
+            f"width:14px;height:14px;border-radius:7px;margin:-5px 0;}}"
+            f"QSlider::sub-page:horizontal{{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,"
+            f"stop:0 {T.GRAD1},stop:1 {T.GRAD2});border-radius:2px;}}")
+        def on_sl(v): pct_lbl.setText(f"{v}%"); cfg2=model.load_config(); cfg2["timer_alert_pct"]=v; model.save_config(cfg2)
+        sl.valueChanged.connect(on_sl)
+        row = QHBoxLayout(); row.setSpacing(10)
+        row.addWidget(sl, 1); row.addWidget(pct_lbl)
         c2.addLayout(row)
+        hint = QLabel("Alerte rouge quand le timer dépasse ce seuil")
+        hint.setStyleSheet(f"font-size:8pt;color:{T.HINT};font-style:italic;background:transparent;")
+        c2.addWidget(hint)
         lay.addWidget(card2)
 
-        # ── Switch thème ──────────────────────────────────
-        card3 = QFrame(); card3.setObjectName("card")
-        c3 = QVBoxLayout(card3); c3.setContentsMargins(12,10,12,10); c3.setSpacing(8)
-
-        lbl3 = QLabel("APPARENCE")
-        lbl3.setStyleSheet(f"color:{theme.HINT};font-size:7pt;font-weight:bold;letter-spacing:1px;")
-        c3.addWidget(lbl3)
-
-        theme_row = QHBoxLayout(); theme_row.setSpacing(10)
-        lbl_theme = QLabel("Thème")
-        lbl_theme.setStyleSheet(f"color:{theme.TEXT};")
-        theme_row.addWidget(lbl_theme, 1)
-
-        self._theme_switch = _ThemeSwitch(
-            model.load_config().get("dark_theme", False),
-            self._on_theme_toggle)
-        theme_row.addWidget(self._theme_switch)
-        c3.addLayout(theme_row)
+        # ── Apparence ─────────────────────────────────────
+        lay.addWidget(_section("🎨  APPARENCE"))
+        card3 = _card()
+        c3 = QVBoxLayout(card3); c3.setContentsMargins(14,12,14,12); c3.setSpacing(6)
+        dark = cfg.get("dark_theme", False)
+        sw = _ThemeSwitch(dark, self._toggle_theme)
+        _row("Thème", sw, c3)
         lay.addWidget(card3)
-        # Ajuster la hauteur au contenu après construction
-        from PySide6.QtCore import QTimer
-        QTimer.singleShot(0, self._fit_height)
+        lay.addStretch()
 
-    def _fit_height(self):
-        h = self.layout().sizeHint().height() + 20
-        self.setMaximumHeight(h)
-        self.setMinimumHeight(h)
+    def _toggle_theme(self, dark):
+        cfg = model.load_config()
+        cfg["dark_theme"] = dark
+        model.save_config(cfg)
+        from PySide6.QtWidgets import QApplication, QMessageBox
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Thème")
+        msg.setText("Relance l'application pour appliquer le thème.")
+        msg.setStyleSheet(f"background:{T.BG};color:{T.TEXT};")
+        msg.exec()
 
-    def _on_slider(self, val):
-        self._val_lbl.setText(f"{val} min")
-        model.set_alert_threshold(val * 60)
-
-    def _on_theme_toggle(self, dark):
-        model.save_config({"dark_theme": dark})
-        # Recharger le thème et le QSS en live
-        import theme as T
-        from PySide6.QtWidgets import QApplication
-        p = T._DARK if dark else T._LIGHT
-        palette = {**p, **T._COMMON}
-        T.apply(palette)
-        QApplication.instance().setStyleSheet(T.QSS)
-
-    def update_path(self, path):
-        self._path_lbl.setText(path)
+    def update_path(self, p):
+        self._path_lbl.setText(p)

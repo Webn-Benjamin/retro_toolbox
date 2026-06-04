@@ -10,7 +10,7 @@ import theme as T
 from tabs.accounts.sadi_manager import SadiManager
 
 
-def _lbl(txt, color=None, sz="8.5pt", bold=False, italic=False):
+def _lbl(txt, color=None, sz="9pt", bold=False, italic=False):
     l = QLabel(txt)
     ss = f"background:transparent;font-size:{sz};"
     if color:  ss += f"color:{color};"
@@ -41,7 +41,7 @@ class _Toggle(QFrame):
 
         self._lbl = QLabel(label)
         self._lbl.setStyleSheet(
-            f"background:transparent;color:{T.TEXT};font-size:8.5pt;")
+            f"background:transparent;color:{T.TEXT};font-size:9pt;")
         lay.addWidget(self._lbl, 1)
 
         self._sw = QLabel()
@@ -98,7 +98,8 @@ class SettingsPanel(QWidget):
         # Header
         hdr = QFrame()
         hdr.setStyleSheet(
-            f"background:{T.BG_DARK};border-bottom:1px solid {T.BORDER};")
+            f"background:qlineargradient(x1:0,y1:0,x2:1,y2:0,"
+            f"stop:0 {T.GRAD1},stop:1 {T.GRAD2});border:none;")
         hl = QHBoxLayout(hdr); hl.setContentsMargins(10, 6, 10, 6)
         hl.addWidget(_lbl("Paramètres", T.TEXT, "9pt", bold=True))
         outer.addWidget(hdr)
@@ -180,7 +181,7 @@ class SettingsPanel(QWidget):
         l = QLabel(f"  {title}")
         l.setStyleSheet(
             f"background:{T.BG_DARK};color:{T.HINT};"
-            f"font-size:8pt;font-weight:bold;letter-spacing:1px;"
+            f"font-size:8pt;font-weight:bold;"
             f"padding:4px 0;border-top:1px solid {T.BORDER};"
             f"border-bottom:1px solid {T.BORDER};")
         l.setFixedHeight(24)
@@ -221,7 +222,7 @@ class SettingsPanel(QWidget):
             self._sadi_lay.addWidget(row)
         if not pseudos:
             self._sadi_lay.addWidget(
-                _lbl("Aucun personnage détecté", T.HINT, "9.5pt", italic=True))
+                _lbl("Aucun personnage détecté", T.HINT, "10pt", italic=True))
 
     def _change_turns(self, delta: int):
         current = int(self._turns_lbl.text())

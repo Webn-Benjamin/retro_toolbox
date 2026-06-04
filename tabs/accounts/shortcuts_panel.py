@@ -30,7 +30,7 @@ _KEY_NAMES = {
 }
 
 
-def _lbl(txt, color=None, sz="8.5pt", bold=False, italic=False):
+def _lbl(txt, color=None, sz="9pt", bold=False, italic=False):
     l = QLabel(txt)
     ss = f"background:transparent;font-size:{sz};"
     if color:  ss += f"color:{color};"
@@ -67,10 +67,13 @@ class ShortcutsPanel(QWidget):
         # Header
         hdr = QFrame()
         hdr.setStyleSheet(
-            f"background:{T.BG_DARK};border-bottom:1px solid {T.BORDER};")
+            f"background:qlineargradient(x1:0,y1:0,x2:1,y2:0,"
+            f"stop:0 {T.GRAD1},stop:1 {T.GRAD2});border:none;")
         hl = QHBoxLayout(hdr)
         hl.setContentsMargins(10, 6, 10, 6)
-        hl.addWidget(_lbl("Raccourcis clavier", T.TEXT, "9pt", bold=True))
+        lbl_h = _lbl("Raccourcis clavier", "white", "9pt", bold=True)
+        lbl_h.setStyleSheet("background:transparent;color:white;font-size:9pt;font-weight:bold;")
+        hl.addWidget(lbl_h)
         root.addWidget(hdr)
 
         # Notice
@@ -125,8 +128,9 @@ class ShortcutsPanel(QWidget):
         btn_clr = QPushButton("✕")
         btn_clr.setFixedSize(28, 28)
         btn_clr.setStyleSheet(
-            f"QPushButton{{background:{T.BG_DARK};color:{T.HINT};border:none;font-size:9pt;}}"
-            f"QPushButton:hover{{color:{T.RED};}}")
+            f"QPushButton{{background:{T.BG_DARK};color:{T.HINT};border:1px solid {T.BORDER};"
+            f"border-radius:6px;font-size:9pt;}}"
+            f"QPushButton:hover{{color:{T.RED};border-color:{T.RED};}}")
         btn_clr.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_clr.clicked.connect(lambda _, k=key: self._clear(k))
         r2.addWidget(btn_clr)

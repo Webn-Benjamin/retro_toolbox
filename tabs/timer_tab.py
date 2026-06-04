@@ -16,9 +16,9 @@ def _pos_btn(text, active, callback):
     b = QPushButton(text)
     b.setFixedHeight(22)
     b.setStyleSheet(
-        f"QPushButton{{background:{'#d9791f' if active else '#d6c9b0'};"
-        f"color:{'white' if active else '#7a6a56'};"
-        f"border:none;border-radius:3px;padding:0 6px;font-size:7pt;font-weight:bold;}}"
+        f"QPushButton{{background:{'T.ORANGE' if active else 'T.BG_DARK'};"
+        f"color:{'white' if active else 'T.SUBTEXT'};"
+        f"border:none;border-radius:6px;padding:0 6px;font-size:7pt;font-weight:bold;}}"
         f"QPushButton:hover{{background:#d9791f;color:white;}}")
     b.clicked.connect(callback)
     return b
@@ -51,7 +51,7 @@ class GroupCard(QFrame):
         self._name_lbl.setStyleSheet(f"color:{T.SUBTEXT};font-weight:bold;font-size:8pt;background:transparent;")
         self._name_lbl.mouseDoubleClickEvent = self._rename
         self._timer_lbl = QLabel("00:00")
-        self._timer_lbl.setStyleSheet(f"color:{T.ORANGE};font-size:20pt;font-weight:bold;background:transparent;")
+        self._timer_lbl.setStyleSheet(f"color:{T.ORANGE};font-size:22pt;font-weight:bold;background:transparent;")
         self._timer_lbl.setAlignment(Qt.AlignmentFlag.AlignRight)
         top.addWidget(self._name_lbl)
         top.addWidget(self._timer_lbl)
@@ -115,9 +115,9 @@ class GroupCard(QFrame):
         for h, b in self._h_btns.items():
             active = (h == val)
             b.setStyleSheet(
-                f"QPushButton{{background:{'#d9791f' if active else '#d6c9b0'};"
-                f"color:{'white' if active else '#7a6a56'};"
-                f"border:none;border-radius:3px;padding:0 6px;font-size:7pt;font-weight:bold;}}"
+                f"QPushButton{{background:{'T.ORANGE' if active else 'T.BG_DARK'};"
+                f"color:{'white' if active else 'T.SUBTEXT'};"
+                f"border:none;border-radius:6px;padding:0 6px;font-size:7pt;font-weight:bold;}}"
                 f"QPushButton:hover{{background:#d9791f;color:white;}}")
         self._save_pos()
 
@@ -126,9 +126,9 @@ class GroupCard(QFrame):
         for v, b in self._v_btns.items():
             active = (v == val)
             b.setStyleSheet(
-                f"QPushButton{{background:{'#d9791f' if active else '#d6c9b0'};"
-                f"color:{'white' if active else '#7a6a56'};"
-                f"border:none;border-radius:3px;padding:0 6px;font-size:7pt;font-weight:bold;}}"
+                f"QPushButton{{background:{'T.ORANGE' if active else 'T.BG_DARK'};"
+                f"color:{'white' if active else 'T.SUBTEXT'};"
+                f"border:none;border-radius:6px;padding:0 6px;font-size:7pt;font-weight:bold;}}"
                 f"QPushButton:hover{{background:#d9791f;color:white;}}")
         self._save_pos()
 
@@ -266,7 +266,7 @@ class TimerTab(QWidget):
         lbl_r.setStyleSheet(f"color:{T.HINT};font-size:8pt;font-weight:bold;background:transparent;")
         self._rename_input = QLineEdit()
         self._rename_input.setStyleSheet(
-            f"QLineEdit{{background:{T.SURFACE2};border:1px solid {T.BORDER};border-radius:3px;"
+            f"QLineEdit{{background:{T.SURFACE2};border:1px solid {T.BORDER};border-radius:6px;"
             f"padding:4px 8px;color:{T.TEXT};font-size:9pt;}}"
             f"QLineEdit:focus{{border-color:{T.ORANGE};}}")
         self._rename_input.returnPressed.connect(self._confirm_rename)
@@ -274,7 +274,7 @@ class TimerTab(QWidget):
         btn_ok = QPushButton("✔")
         btn_ok.setFixedWidth(32)
         btn_ok.setStyleSheet(
-            f"QPushButton{{background:{T.GREEN};color:white;border:none;border-radius:3px;"
+            f"QPushButton{{background:{T.GREEN};color:white;border:none;border-radius:6px;"
             f"padding:5px;font-weight:bold;font-size:10pt;}}"
             f"QPushButton:hover{{background:#6e9428;}}")
         btn_ok.clicked.connect(self._confirm_rename)
@@ -283,7 +283,7 @@ class TimerTab(QWidget):
         btn_cancel.setFixedWidth(32)
         btn_cancel.setStyleSheet(
             f"QPushButton{{background:{T.BG_DARK};color:{T.HINT};border:1px solid {T.BORDER};"
-            f"border-radius:3px;padding:5px;font-weight:bold;}}"
+            f"border-radius:6px;padding:5px;font-weight:bold;}}"
             f"QPushButton:hover{{border-color:{T.RED};color:{T.RED};}}")
         btn_cancel.clicked.connect(self._cancel_rename)
 
