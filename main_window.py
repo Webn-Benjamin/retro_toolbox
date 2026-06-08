@@ -28,6 +28,7 @@ from tabs.runes_tab      import RunesTab
 from tabs.settings_tab   import SettingsTab
 from tabs.about_tab      import AboutTab
 from tabs.craft_tab     import CraftTab
+from tabs.session_tab   import SessionTab
 from tabs.todo_tab       import TodoTab
 from tabs.overlay_tab    import OverlayTab
 from tabs.dashboard_tab  import DashboardTab
@@ -424,6 +425,7 @@ class MainWindow(QMainWindow):
             SettingsTab(str(self.data_file), self._on_change_folder),  # 7
             CraftTab(),                       # 8
             AboutTab(),                       # 9
+            SessionTab(),                     # 10
         ]
 
         # Stack — QStackedWidget expose uniquement le widget actif pour sizeHint
@@ -475,7 +477,7 @@ class MainWindow(QMainWindow):
         mm_lay = QVBoxLayout(self._more_menu)
         mm_lay.setContentsMargins(6, 6, 6, 6); mm_lay.setSpacing(4)
 
-        for idx, (icon, label) in [(4, ("⏱", "Timer")), (5, ("⚔", "Challenges")), (6, ("🎯", "Dots")), (7, ("⚙", "Paramètres")), (8, ("🔧", "Craft")), (9, ("📊", "Détails"))]:
+        for idx, (icon, label) in [(4, ("⏱", "Timer")), (5, ("⚔", "Challenges")), (6, ("🎯", "Dots")), (7, ("⚙", "Paramètres")), (8, ("🔧", "Craft")), (9, ("📊", "Détails")), (10, ("⏱", "Session"))]:
             btn = QPushButton(f"{icon}  {label}")
             btn.setStyleSheet(
                 f"QPushButton{{background:transparent;color:{theme.TEXT};"

@@ -1,13 +1,14 @@
 """updater.py - Mise a jour automatique."""
 
 import sys
+import os
 import threading
 import urllib.request
 import json
 import subprocess
 from pathlib import Path
 
-CURRENT_VERSION = "1.1.2"
+CURRENT_VERSION = "1.1.3"
 VERSION_URL     = "https://retro-toolbox.fr/version.json"
 
 # User-Agent navigateur pour eviter les blocages serveur
@@ -86,12 +87,21 @@ def download_and_restart(url: str, version: str, on_progress=None):
         raise e
 
     bat_path    = exe_dir / "_retro_update.bat"
+    pid = os.getpid() if hasattr(os, "getpid") else None
     bat_content = (
         "@echo off\n"
-        "ping 127.0.0.1 -n 3 > nul\n"
-        f"move /y \"{new_exe}\" \"{current_exe}\"\n"
-        f"start \"\" \"{current_exe}\"\n"
-        "del \"%~f0\"\n"
+        # Tuer le process parent proprement
+        + (f"taskkill /F /PID {pid} >nul 2>&1\n" if pid else "")
+        + "timeout /t 2 /nobreak >nul\n"
+        # Boucle retry jusqu'à ce que le fichier soit libéré
+        + ":retry\n"
+        + f"move /y \"{new_exe}\" \"{current_exe}\" >nul 2>&1\n"
+        + "if errorlevel 1 (\n"
+        + "  timeout /t 1 /nobreak >nul\n"
+        + "  goto retry\n"
+        + ")\n"
+        + f"start \"\" \"{current_exe}\"\n"
+        + "del \"%~f0\"\n"
     )
     bat_path.write_text(bat_content, encoding="utf-8")
 

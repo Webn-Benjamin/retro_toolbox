@@ -1,4 +1,0 @@
-Insérer trouvé à y=69.0 : 'Insérer dans le chat'
-Header crop: y 12-67, w 380
-Header OCR: 'Hembourrage de Meupette :'
-NAME (header): Hembourrage de Meupette :

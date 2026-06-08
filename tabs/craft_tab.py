@@ -11,7 +11,6 @@ import model, theme
 T = theme
 MAX_RES = 8
 
-
 # ─── Helpers ──────────────────────────────────────────────────────────
 def _sep():
     f = QFrame(); f.setFrameShape(QFrame.Shape.HLine)
@@ -49,7 +48,6 @@ def _parse(t):
     try: return int(re.sub(r'\s', '', str(t)))
     except: return 0
 
-
 # ─── KamasLineEdit ────────────────────────────────────────────────────
 class KamasLineEdit(QLineEdit):
     def __init__(self, p=None):
@@ -70,7 +68,6 @@ class KamasLineEdit(QLineEdit):
 
     def value(self): return _parse(self.text())
     def setValue(self, v): self.setText(_fmt(v) if v else "")
-
 
 # ─── ResourceRow ─────────────────────────────────────────────────────
 class ResourceRow(QWidget):
@@ -128,7 +125,6 @@ class ResourceRow(QWidget):
         self._price.setValue(d.get("price", 0))
 
     def set_name(self, n): self._name.setText(n)
-
 
 # ─── CraftCard ───────────────────────────────────────────────────────
 class CraftCard(QFrame):
@@ -267,7 +263,6 @@ class CraftCard(QFrame):
             self._add_row(); self._rows[-1].set_name(name); return True
         return False
 
-
 # ─── OCR de la zone sombre du menu ───────────────────────────────────
 def _ocr_menu(x, y):
     """
@@ -276,8 +271,6 @@ def _ocr_menu(x, y):
     → inversion + upscale bilinéaire → OCR du nom.
     """
     import os, asyncio, io as _io
-    app_dir = os.path.dirname(os.path.abspath(__file__))
-    log = []
 
     try:
         from PIL import ImageGrab, Image as PILImage, ImageOps, ImageFilter
@@ -285,7 +278,6 @@ def _ocr_menu(x, y):
 
         region = (max(0, x - 5), max(0, y - 5), x + 700, y + 200)
         img = ImageGrab.grab(bbox=region).convert("RGB")
-        img.save(os.path.join(app_dir, "retro_debug_capture.png"))
 
         from winsdk.windows.media.ocr import OcrEngine
         from winsdk.windows.globalization import Language
@@ -311,20 +303,23 @@ def _ocr_menu(x, y):
             return await eng.recognize_async(sb)
 
         # ── Étape 1 : OCR complète pour trouver Y de "Insérer" ──────
-        result = asyncio.run(_ocr_full(img))
+        try:
+            _loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(_loop)
+            result = _loop.run_until_complete(_ocr_full(img))
+        finally:
+            try: _loop.close()
+            except: pass
         if not result or not result.lines:
-            log.append("Étape 1 : pas de résultat OCR")
             return None
 
         inserer_y = None
         for line in result.lines:
             if "ins" in line.text.lower() and line.words:
                 inserer_y = line.words[0].bounding_rect.y
-                log.append(f"Insérer trouvé à y={inserer_y:.1f} : {line.text!r}")
                 break
 
         if inserer_y is None:
-            log.append("Insérer non trouvé dans l'image")
             # Fallback : texte complet avant "Insérer"
             full = result.text.strip()
             for m in ["Insérer", "insérer", "Recettes"]:
@@ -332,7 +327,6 @@ def _ocr_menu(x, y):
                     name = re.sub(r'^[^a-zA-ZÀ-ÿ]+', '',
                                   full[:full.index(m)]).strip()
                     if len(name) > 2:
-                        log.append(f"Fallback name: {name}")
                         return name
             return None
 
@@ -341,7 +335,6 @@ def _ocr_menu(x, y):
         header_top    = max(0, header_bottom - 55)
         menu_w = min(380, img.width)
         header = img.crop((8, header_top, menu_w, header_bottom))
-        log.append(f"Header crop: y {header_top}-{header_bottom}, w {menu_w}")
 
         # Niveaux de gris → inverser (texte blanc→noir, fond sombre→clair)
         from PIL import ImageEnhance
@@ -355,7 +348,6 @@ def _ocr_menu(x, y):
         header = header_inv.convert("RGB").resize(
             (header_inv.width * 6, header_inv.height * 6),
             PILImage.Resampling.BILINEAR)
-        header.save(os.path.join(app_dir, "retro_debug_header.png"))
 
         # ── Étape 3 : pytesseract sur le header (meilleur sur pixel font) ──
         raw2 = ""
@@ -378,15 +370,18 @@ def _ocr_menu(x, y):
             lines = [l.strip() for l in raw2.splitlines() if l.strip()]
             raw2 = lines[0] if lines else ""
         except Exception as e_tess:
-            log.append(f"Tesseract error: {e_tess}")
             # Fallback Windows OCR
             try:
-                result2 = asyncio.run(_ocr_full(header))
+                try:
+                    _loop2 = asyncio.new_event_loop()
+                    asyncio.set_event_loop(_loop2)
+                    result2 = _loop2.run_until_complete(_ocr_full(header))
+                finally:
+                    try: _loop2.close()
+                    except: pass
                 raw2 = result2.text.strip() if result2 else ""
             except Exception:
                 raw2 = ""
-
-        log.append(f"Header OCR: {raw2!r}")
 
         name = re.sub(r'^[^a-zA-ZÀ-ÿ]+', '', raw2).strip()
         name = re.sub(r'\s+', ' ', name).strip()
@@ -397,19 +392,16 @@ def _ocr_menu(x, y):
             words.pop(0)
         name = " ".join(words).strip()
         if len(name) > 2:
-            log.append(f"NAME (header): {name}")
             return name
 
         # ── Fallback : texte full-image avant "Insérer" ─────────────
         full = result.text.strip()
-        log.append(f"Full text: {full!r}")
         for m in ["Insérer", "insérer", "Recettes", "recettes"]:
             if m in full:
                 candidate = re.sub(r'^[^a-zA-ZÀ-ÿ]+', '',
                                    full[:full.index(m)]).strip()
                 candidate = re.sub(r'\s+', ' ', candidate).strip()
                 if len(candidate) > 2:
-                    log.append(f"NAME (fallback): {candidate}")
                     return candidate
                 break
 
@@ -420,19 +412,12 @@ def _ocr_menu(x, y):
                 candidate = re.sub(r'^[^a-zA-ZÀ-ÿ]+', '',
                                    line.text).strip()
                 if len(candidate) > 2:
-                    log.append(f"NAME (line): {candidate}")
                     return candidate
 
-    except Exception as e:
-        log.append(f"ERREUR: {e}")
-
-    finally:
-        with open(os.path.join(app_dir, "retro_debug_words.txt"),
-                  "w", encoding="utf-8") as f:
-            f.write("\n".join(log))
+    except Exception:
+        pass
 
     return None
-
 
 # ─── CraftTab ─────────────────────────────────────────────────────────
 class CraftTab(QWidget):
@@ -516,17 +501,15 @@ class CraftTab(QWidget):
                 state = win32api.GetAsyncKeyState(win32con.VK_RBUTTON)
                 cur   = bool(state & 0x8000)
 
-                if cur and not prev:  # appui
+                if cur and not prev:
                     try:
                         px, py = win32api.GetCursorPos()
-                        hwnd = win32gui.WindowFromPoint((px, py))
-                        # Remonter à la fenêtre racine
+                        hwnd   = win32gui.WindowFromPoint((px, py))
                         while True:
                             p = win32gui.GetParent(hwnd)
                             if not p: break
                             hwnd = p
-                        title = win32gui.GetWindowText(hwnd).lower()
-                        # Uniquement les fenêtres Dofus (exclure Retro Toolbox)
+                        title  = win32gui.GetWindowText(hwnd).lower()
                         dofus_ok = ("dofus" in title and "toolbox" not in title)
                     except:
                         dofus_ok = False
@@ -545,7 +528,7 @@ class CraftTab(QWidget):
 
                 prev = cur
                 time.sleep(0.02)
-        except:
+        except Exception:
             pass
 
     def _on_name(self, name):
