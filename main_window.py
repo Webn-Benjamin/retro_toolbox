@@ -27,6 +27,7 @@ from tabs.challenges_tab import ChallengesTab
 from tabs.runes_tab      import RunesTab
 from tabs.settings_tab   import SettingsTab
 from tabs.about_tab      import AboutTab
+from tabs.craft_tab     import CraftTab
 from tabs.todo_tab       import TodoTab
 from tabs.overlay_tab    import OverlayTab
 from tabs.dashboard_tab  import DashboardTab
@@ -393,8 +394,9 @@ class MainWindow(QMainWindow):
             "QPushButton:hover{background:rgba(255,255,255,76);}")
         btn_discord.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_discord.setToolTip("Rejoindre le serveur Discord Retro Toolbox")
-        btn_discord.clicked.connect(lambda: __import__('webbrowser').open(
-            "https://discord.com/invite/Md8RJXdtQZ"))
+        import webbrowser as _wb
+        btn_discord.clicked.connect(
+            lambda: _wb.open("https://discord.com/invite/Md8RJXdtQZ"))
         tb_lay.addWidget(btn_discord)
         main_lay.addWidget(title_bar)
 
@@ -420,7 +422,8 @@ class MainWindow(QMainWindow):
             ChallengesTab(),                  # 5
             OverlayTab(),                     # 6
             SettingsTab(str(self.data_file), self._on_change_folder),  # 7
-            AboutTab(),                       # 8
+            CraftTab(),                       # 8
+            AboutTab(),                       # 9
         ]
 
         # Stack — QStackedWidget expose uniquement le widget actif pour sizeHint
@@ -472,7 +475,7 @@ class MainWindow(QMainWindow):
         mm_lay = QVBoxLayout(self._more_menu)
         mm_lay.setContentsMargins(6, 6, 6, 6); mm_lay.setSpacing(4)
 
-        for idx, (icon, label) in [(4, ("⏱", "Timer")), (5, ("⚔", "Challenges")), (6, ("🎯", "Dots")), (7, ("⚙", "Paramètres")), (8, ("📊", "Détails"))]:
+        for idx, (icon, label) in [(4, ("⏱", "Timer")), (5, ("⚔", "Challenges")), (6, ("🎯", "Dots")), (7, ("⚙", "Paramètres")), (8, ("🔧", "Craft")), (9, ("📊", "Détails"))]:
             btn = QPushButton(f"{icon}  {label}")
             btn.setStyleSheet(
                 f"QPushButton{{background:transparent;color:{theme.TEXT};"
@@ -503,6 +506,11 @@ class MainWindow(QMainWindow):
     def _switch_tab(self, idx: int):
         self.setUpdatesEnabled(False)
         self._stack.setCurrentIndex(idx)
+        # Activer/désactiver le watcher clic droit du craft
+        try:
+            self._tabs[8].set_active(idx == 8)
+        except Exception:
+            pass
         for i, btn in enumerate(self._nav_btns):
             btn.setChecked(i == idx)
         self._adjust_height(idx)
@@ -547,7 +555,7 @@ class MainWindow(QMainWindow):
             return f"moy {m:02d}:{s:02d} · {len(times)}×"
 
         timer_tab.update_stats(f"Kill  {fmt(all_kills)}", f"Rare  {fmt(all_rares)}")
-        self._tabs[8].update_session_stats(self.maps)
+        self._tabs[9].update_session_stats(self.maps)
 
     # ── Callbacks Timer ───────────────────────────────────
 

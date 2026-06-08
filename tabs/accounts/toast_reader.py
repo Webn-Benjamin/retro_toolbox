@@ -11,7 +11,7 @@ try:
 except ImportError:
     SDK_OK = False
 
-from tabs.accounts.window_manager import _RE_TITLE
+from tabs.accounts.window_manager import _PTN_SESSION
 
 _RULES = [
     ("combat",  "⚔️", [re.compile(r"de jouer|turn to play|Le toca jugar", re.I)]),
@@ -23,18 +23,18 @@ _RULES = [
     ("pvp",     "🛡️", [re.compile(r"percepteur.+attaqué|perceptor.+attacked|recaudador.+atacado", re.I)]),
 ]
 
-def _classify(body):
+def _categorize(body):
     for ntype, emoji, patterns in _RULES:
         if any(p.search(body) for p in patterns):
             return ntype, emoji
     return "other", "🔔"
 
 @dataclass
-class Notification:
+class AlertEvent:
     ntype: str; emoji: str; pseudo: str; body: str
 
-class ToastWatcher:
-    def __init__(self, callback: Callable[[Notification], None],
+class AlertWatcher:
+    def __init__(self, callback: Callable[[AlertEvent], None],
                  remove_after_read=True, on_status=None):
         self._cb = callback
         self._remove = remove_after_read
@@ -43,14 +43,14 @@ class ToastWatcher:
         self._loop = None
         self._thread = None
 
-    def set_remove(self, v): self._remove = v
+    def set_dismiss(self, v): self._remove = v
 
     def start(self):
         if not SDK_OK:
             return False
         self._running = True
         self._thread = threading.Thread(
-            target=self._run_loop, daemon=True, name="ToastWatcher")
+            target=self._event_loop, daemon=True, name="AlertWatcher")
         self._thread.start()
         return True
 
@@ -59,19 +59,19 @@ class ToastWatcher:
         if self._loop and self._loop.is_running():
             self._loop.call_soon_threadsafe(self._loop.stop)
 
-    def _run_loop(self):
+    def _event_loop(self):
         ctypes.windll.ole32.CoInitializeEx(None, 0x2)
         self._loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._loop)
         try:
-            self._loop.run_until_complete(self._listen())
+            self._loop.run_until_complete(self._subscribe())
         except Exception:
             pass
         finally:
             self._loop.close()
             ctypes.windll.ole32.CoUninitialize()
 
-    async def _listen(self):
+    async def _subscribe(self):
         listener = _mgmt.UserNotificationListener.current
         access   = await listener.request_access_async()
         if access != _mgmt.UserNotificationListenerAccessStatus.ALLOWED:
@@ -128,7 +128,7 @@ class ToastWatcher:
                             listener.remove_notification(n.id)
                         except Exception:
                             pass
-                    parsed = self._parse(n)
+                    parsed = self._decode(n)
                     if parsed:
                         threading.Thread(
                             target=self._cb, args=(parsed,),
@@ -142,7 +142,7 @@ class ToastWatcher:
                 except Exception:
                     pass
 
-    def _parse(self, raw):
+    def _decode(self, raw):
         try:
             binding = raw.notification.visual.get_binding(
                 _notif.KnownNotificationBindings.toast_generic)
@@ -153,14 +153,14 @@ class ToastWatcher:
                 return None
             title = texts[0]
             body  = texts[1] if len(texts) > 1 else ""
-            m = _RE_TITLE.match(title)
+            m = _PTN_SESSION.match(title)
             if not m:
                 return None
             pseudo = m.group(1).strip()
-            ntype, emoji = _classify(body)
+            ntype, emoji = _categorize(body)
             if ntype == "other":
                 return None
-            return Notification(ntype=ntype, emoji=emoji, pseudo=pseudo, body=body)
+            return AlertEvent(ntype=ntype, emoji=emoji, pseudo=pseudo, body=body)
         except Exception:
             return None
 
@@ -168,14 +168,14 @@ class ToastWatcher:
 class _MockWatcher:
     def __init__(self, cb, remove=True, on_status=None):
         self._cb = cb; self._t = None
-    def set_remove(self, v): pass
+    def set_dismiss(self, v): pass
     def start(self) -> bool:
         from PySide6.QtCore import QTimer
         import random
         self._t = QTimer()
         self._t.timeout.connect(lambda: self._cb(random.choice([
-            Notification("combat","⚔️","St-Arc","C est a toi de jouer"),
-            Notification("echange","🔄","St-Enu","te propose de faire un echange"),
+            AlertEvent("combat","⚔️","St-Arc","C est a toi de jouer"),
+            AlertEvent("echange","🔄","St-Enu","te propose de faire un echange"),
         ])))
         self._t.start(15000)
         return True
@@ -186,4 +186,4 @@ class _MockWatcher:
 def make_watcher(callback, remove=True, mock=False, on_status=None):
     if mock:
         return _MockWatcher(callback, remove, on_status)
-    return ToastWatcher(callback, remove, on_status=on_status)
+    return AlertWatcher(callback, remove, on_status=on_status)

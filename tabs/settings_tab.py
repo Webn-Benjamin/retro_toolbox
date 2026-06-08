@@ -104,27 +104,27 @@ class SettingsTab(QWidget):
         card2 = _card()
         c2 = QVBoxLayout(card2); c2.setContentsMargins(14,12,14,12); c2.setSpacing(8)
         cfg = model.load_config()
-        val = cfg.get("timer_alert_pct", 80)
-        pct_lbl = QLabel(f"{val}%")
-        pct_lbl.setStyleSheet(
+        val = cfg.get("timer_alert_min", 5)
+        min_lbl = QLabel(f"{val} min")
+        min_lbl.setStyleSheet(
             f"font-size:11pt;font-weight:700;color:{T.ORANGE};"
             f"background:{T.SURFACE2};padding:2px 10px;border-radius:6px;")
-        pct_lbl.setFixedWidth(52)
-        pct_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        min_lbl.setFixedWidth(68)
+        min_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         sl = QSlider(Qt.Orientation.Horizontal)
-        sl.setRange(50, 100); sl.setValue(val)
+        sl.setRange(1, 30); sl.setValue(val)
         sl.setStyleSheet(
             f"QSlider::groove:horizontal{{background:{T.BG_DARK};height:4px;border-radius:2px;}}"
             f"QSlider::handle:horizontal{{background:white;border:2px solid {T.ORANGE};"
             f"width:14px;height:14px;border-radius:7px;margin:-5px 0;}}"
             f"QSlider::sub-page:horizontal{{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,"
             f"stop:0 {T.GRAD1},stop:1 {T.GRAD2});border-radius:2px;}}")
-        def on_sl(v): pct_lbl.setText(f"{v}%"); cfg2=model.load_config(); cfg2["timer_alert_pct"]=v; model.save_config(cfg2)
+        def on_sl(v): min_lbl.setText(f"{v} min"); cfg2=model.load_config(); cfg2["timer_alert_min"]=v; model.save_config(cfg2)
         sl.valueChanged.connect(on_sl)
         row = QHBoxLayout(); row.setSpacing(10)
-        row.addWidget(sl, 1); row.addWidget(pct_lbl)
+        row.addWidget(sl, 1); row.addWidget(min_lbl)
         c2.addLayout(row)
-        hint = QLabel("Alerte rouge quand le timer dépasse ce seuil")
+        hint = QLabel("Alerte rouge X minutes avant la fin du timer")
         hint.setStyleSheet(f"font-size:8pt;color:{T.HINT};font-style:italic;background:transparent;")
         c2.addWidget(hint)
         lay.addWidget(card2)

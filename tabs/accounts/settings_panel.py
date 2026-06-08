@@ -20,7 +20,7 @@ def _lbl(txt, color=None, sz="9pt", bold=False, italic=False):
     return l
 
 
-class _Toggle(QFrame):
+class _SwitchWidget(QFrame):
     """Ligne paramètre avec switch ON/OFF."""
 
     def __init__(self, key: str, label: str, checked: bool,
@@ -77,13 +77,13 @@ class _Toggle(QFrame):
         return self._value
 
 
-class SettingsPanel(QWidget):
+class ConfigPanel(QWidget):
 
     def __init__(self, cfg: dict, on_save, parent=None):
         super().__init__(parent)
         self._cfg    = cfg
         self._on_save = on_save
-        self._toggles: dict[str, _Toggle] = {}
+        self._toggles: dict[str, _SwitchWidget] = {}
         # Mode Farm Sadi
         sadi_cfg   = self._cfg.get("sadi", {})
         self.sadi  = SadiManager(turns=sadi_cfg.get("turns", 3))
@@ -187,12 +187,12 @@ class SettingsPanel(QWidget):
         l.setFixedHeight(24)
         return l
 
-    def _add_toggle(self, key, label, checked, on_change=None) -> _Toggle:
+    def _add_toggle(self, key, label, checked, on_change=None) -> _SwitchWidget:
         def _combined(v, k=key, cb=on_change):
             self._cfg.setdefault("settings", {})[k] = v
             self._on_save()
             if cb: cb(v)
-        t = _Toggle(key, label, checked, _combined)
+        t = _SwitchWidget(key, label, checked, _combined)
         self._toggles[key] = t
         return t
 
@@ -200,14 +200,14 @@ class SettingsPanel(QWidget):
         t = self._toggles.get(key)
         return t.value if t else self._cfg.get("settings", {}).get(key, default)
 
-    def refresh_sadi_rows(self, pseudos: list[str]):
+    def update_cycle_rows(self, pseudos: list[str]):
         """Met à jour la liste des Sadidas avec les persos détectés."""
         while self._sadi_lay.count():
             item = self._sadi_lay.takeAt(0)
             if item.widget(): item.widget().deleteLater()
         saved = set(self._cfg.get("sadi", {}).get("sadis", []))
         for pseudo in pseudos:
-            row = _Toggle(
+            row = _SwitchWidget(
                 key=f"sadi_{pseudo}",
                 label=f"🌿  {pseudo}",
                 checked=(pseudo in saved))
@@ -234,6 +234,6 @@ class SettingsPanel(QWidget):
 
     def _on_shorten(self, enabled: bool):
         try:
-            from tabs.accounts.window_manager import apply_short_titles
-            apply_short_titles(enabled)
+            from tabs.accounts.window_manager import apply_compact_titles
+            apply_compact_titles(enabled)
         except Exception: pass

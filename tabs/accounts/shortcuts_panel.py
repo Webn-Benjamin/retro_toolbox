@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QEvent, QObject
 from PySide6.QtGui import QKeySequence
 import theme as T
-from tabs.accounts.hotkey_manager import HotkeyRegistry
+from tabs.accounts.hotkey_manager import ShortcutTable
 
 # Définition des raccourcis disponibles
 _SHORTCUTS = [
@@ -42,7 +42,7 @@ def _lbl(txt, color=None, sz="9pt", bold=False, italic=False):
 
 class ShortcutsPanel(QWidget):
 
-    def __init__(self, cfg: dict, registry: HotkeyRegistry, on_save,
+    def __init__(self, cfg: dict, registry: ShortcutTable, on_save,
                  on_next, on_prev, on_main, on_back, on_ctrl_shift,
                  parent=None):
         super().__init__(parent)

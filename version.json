@@ -1,5 +1,5 @@
 {
-  "version": "1.1.0",
+  "version": "1.1.2",
   "url": "https://retro-toolbox.fr/retro_toolbox.exe",
-  "notes": "Onglet Comptes complet : autofocus sur notifications Dofus, raccourcis globaux, mode Farm, mode Déplacement, mode Farm Sadi, profils d'ordre, indicateur de tour actif. Bouton Discord, tutoriel notifications, maximiser les fenêtres à l'ouverture."
+  "notes": "-Ajout de la feature calcul du craft, correction du bouton discord et du réglage timer, correction des raccourcis autofocus qui fonctionnait pas sans être connecté"
 }

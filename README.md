@@ -6,7 +6,7 @@
 
 **Outil de gestion pour Dofus Rétro**
 
-[![Version](https://img.shields.io/badge/version-1.1.1-orange?style=flat-square)](https://retro-toolbox.fr)
+[![Version](https://img.shields.io/badge/version-1.1.2-orange?style=flat-square)](https://retro-toolbox.fr)
 [![Platform](https://img.shields.io/badge/platform-Windows-blue?style=flat-square)](https://retro-toolbox.fr)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue?style=flat-square)](https://python.org)
 [![License](https://img.shields.io/badge/license-Source%20Available-lightgrey?style=flat-square)](LICENSE)
@@ -23,12 +23,13 @@
 |--------|-------------|
 | 👥 **Comptes** | Gestion multi-comptes — détection fenêtres Dofus, autofocus notifications, raccourcis globaux, profils d'ordre |
 | 👤 **Dashboard** | Vue de tous vos personnages — classe, niveau, serveur, kamas, stuff complet et notes |
-| 💎 **Runes** | Tableau de poids des runes et calculateur de puit de forgemagie détachable |
+| 💎 **Runes** | Tableau de poids des runes, calculateur de puit détachable et compteur de tentatives exo PA/PM |
 | 📝 **Todo** | Journal d'objectifs avec mise en forme — gras, couleurs, tailles, cases à cocher |
 | ⏱ **Timer** | Suivi de respawn multi-maps et multi-groupes avec alertes automatiques |
 | ⚔ **Challenges** | Gestionnaire de sorts par classe — clic pour griser, glisser pour réorganiser |
 | 🎯 **Dots** | Overlay transparent — marquez des positions sur votre écran via raccourci clavier |
-| ⚙ **Paramètres** | Dossier de données, seuil d'alerte timer, thème clair/sombre |
+| 🔧 **Craft** | Calculateur de craft — coût des ressources, prix hôtel de vente, marge. Détection automatique du nom de ressource via clic droit sur Dofus |
+| ⚙ **Paramètres** | Dossier de données, seuil d'alerte timer en minutes, thème clair/sombre |
 | 📊 **Détails** | Statistiques de session : kills, rares, durée, moyennes |
 
 ### Onglet Comptes — détail
@@ -44,6 +45,25 @@
 - **Raccourcir les titres** de fenêtre dans la barre des tâches
 - **Maximiser à l'ouverture** automatique des fenêtres Dofus
 
+### Onglet Craft — détail
+
+| Feature | Description |
+|---------|-------------|
+| 📦 **Gestion crafts** | Créez autant de crafts que souhaité avec un nom d'item et jusqu'à 8 ressources |
+| 🧮 **Calcul automatique** | Coût total calculé en temps réel à partir des quantités et prix unitaires |
+| 📊 **Comparaison prix** | Saisissez le prix hôtel de vente — la marge s'affiche en vert (bénéfice) ou rouge (perte) |
+| 💰 **Formatage kamas** | Les prix sont formatés avec espaces automatiquement (10 000, 1 000 000) |
+| 🖱 **OCR clic droit** | Clic droit sur une ressource dans Dofus — le nom est reconnu et rempli automatiquement |
+| 💾 **Sauvegarde** | Tous vos crafts sont sauvegardés et restaurés à chaque ouverture |
+
+### Onglet Runes — détail
+
+| Feature | Description |
+|---------|-------------|
+| 📋 **Tableau de poids** | Poids Simple, Pa, Ra et Unité pour toutes les statistiques du jeu |
+| 🧮 **Calculateur de puit** | Calculez le puit restant après chaque tentative — inline ou fenêtre détachable |
+| ⚡ **Compteur exo PA/PM** | Boutons + / − et reset pour suivre vos tentatives, valeur sauvegardée entre les sessions |
+
 ---
 
 ## Prérequis
@@ -52,12 +72,16 @@
 - Python 3.10 ou supérieur
 
 ```
-pip install PySide6 pywin32 keyboard psutil winsdk
+pip install PySide6 pywin32 keyboard psutil winsdk pillow pytesseract
 ```
 
 > **Notifications Toast** (autofocus) : `winsdk` nécessite les **Visual Studio Build Tools 2022**.
 > Téléchargement gratuit : [Visual Studio Build Tools](https://aka.ms/vs/17/release/vs_BuildTools.exe)
 > Cocher "Développement Desktop en C++" lors de l'installation.
+
+> **Détection OCR clic droit** (onglet Craft) : nécessite **Tesseract OCR** installé séparément.
+> Téléchargement gratuit : [Tesseract for Windows](https://github.com/UB-Mannheim/tesseract/wiki)
+> Installer dans `C:\Program Files\Tesseract-OCR\` (chemin détecté automatiquement).
 
 > Si l'application ne se lance pas, installe également :
 > **[Visual C++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe)** (Microsoft, gratuit)
@@ -102,10 +126,11 @@ retro_toolbox/
 │   ├── dashboard_tab.py       # Onglet dashboard personnages
 │   ├── timer_tab.py           # Onglet timer
 │   ├── challenges_tab.py      # Onglet challenges économe
-│   ├── runes_tab.py           # Onglet runes / puit
+│   ├── runes_tab.py           # Onglet runes / puit / compteur exo
 │   ├── todo_tab.py            # Onglet todo list
 │   ├── overlay_tab.py         # Onglet dots / overlay
 │   ├── settings_tab.py        # Onglet paramètres
+│   ├── craft_tab.py           # Onglet craft / calculateur / OCR clic droit
 │   ├── about_tab.py           # Onglet détails / stats
 │   └── accounts/
 │       ├── window_manager.py  # Détection fenêtres Dofus (Win32)
@@ -124,7 +149,9 @@ retro_toolbox/
 
 ## Faux positifs antivirus
 
-Les exécutables compilés avec PyInstaller peuvent être signalés à tort par certains antivirus. Retro Toolbox ne lit pas l'écran, n'accède pas à vos fichiers personnels et ne se connecte à aucun serveur tiers (hormis la vérification de mises à jour sur `retro-toolbox.fr`).
+Les exécutables compilés avec PyInstaller peuvent être signalés à tort par certains antivirus. Retro Toolbox ne lit pas l'écran en permanence, n'accède pas à vos fichiers personnels et ne se connecte à aucun serveur tiers (hormis la vérification de mises à jour sur `retro-toolbox.fr`).
+
+La fonctionnalité OCR (onglet Craft) effectue un screenshot localement uniquement lors d'un clic droit sur Dofus, quand l'onglet Craft est actif.
 
 Si votre antivirus bloque le lancement, ajoutez une exception ou contactez-nous sur [Discord](https://discord.com/invite/Md8RJXdtQZ).
 

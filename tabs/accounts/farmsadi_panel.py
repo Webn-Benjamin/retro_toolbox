@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QEvent, QObject
 from PySide6.QtGui import QKeySequence
 import theme as T
-from tabs.accounts.hotkey_manager import FarmSadiManager
+from tabs.accounts.hotkey_manager import CycleEngine
 
 _KEY_NAMES = {
     Qt.Key.Key_Left: "left", Qt.Key.Key_Right: "right",
@@ -29,13 +29,13 @@ def _lbl(txt, color=None, sz="9pt", bold=False, italic=False):
     return l
 
 
-class FarmSadiPanel(QWidget):
+class CyclePanel(QWidget):
     """
     Panneau de configuration du mode Farm Sadi.
     Affiché comme 4ème sous-onglet dans AccountsTab.
     """
 
-    def __init__(self, cfg: dict, mgr: FarmSadiManager,
+    def __init__(self, cfg: dict, mgr: CycleEngine,
                  on_save, on_register_shortcut, parent=None):
         super().__init__(parent)
         self._cfg          = cfg
@@ -141,7 +141,7 @@ class FarmSadiPanel(QWidget):
             f"QLineEdit{{background:{T.BG_DARK};"
             f"color:{T.ORANGE if shortcut else T.HINT};"
             f"border:none;padding:4px;font-family:Consolas;font-size:9pt;}}")
-        self._sc_inp.mousePressEvent = lambda e: self._begin_capture(self._sc_inp)
+        self._sc_inp.mousePressEvent = lambda e: self._start_capture(self._sc_inp)
         sc_row.addWidget(self._sc_inp, 1)
 
         btn_clr = QPushButton("✕")
@@ -150,7 +150,7 @@ class FarmSadiPanel(QWidget):
             f"QPushButton{{background:{T.BG_DARK};color:{T.HINT};border:none;font-size:9pt;}}"
             f"QPushButton:hover{{color:{T.RED};}}")
         btn_clr.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn_clr.clicked.connect(self._clear_shortcut)
+        btn_clr.clicked.connect(self._reset_shortcut)
         sc_row.addWidget(btn_clr)
         scl.addLayout(sc_row)
         self._lay.addWidget(sc_card)
@@ -175,7 +175,7 @@ class FarmSadiPanel(QWidget):
             f"border:none;padding:3px 6px;font-size:9pt;font-weight:bold;}}"
             f"QSpinBox::up-button,QSpinBox::down-button{{"
             f"background:{T.BG_DARK};border:none;width:14px;}}")
-        spin.valueChanged.connect(self._on_turns_change)
+        spin.valueChanged.connect(self._on_cycle_change)
         tl.addWidget(spin)
         tl.addWidget(_lbl("tours de combat", T.TEXT, "9pt"))
         self._lay.addWidget(turns_card)
@@ -193,8 +193,8 @@ class FarmSadiPanel(QWidget):
         self._lay.addWidget(info_card)
 
         # Liste des fenêtres Dofus détectées
-        from tabs.accounts.window_manager import scan_windows
-        windows = scan_windows()
+        from tabs.accounts.window_manager import collect_sessions
+        windows = collect_sessions()
         if not windows:
             no = _lbl("Aucune fenêtre Dofus détectée. Ouvre Dofus et relance.",
                       T.HINT, "10pt", italic=True)
@@ -230,7 +230,7 @@ class FarmSadiPanel(QWidget):
             f"padding:5px 10px;font-size:9pt;font-weight:bold;}}"
             f"QPushButton:hover{{color:{T.RED};}}")
         btn_cancel.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn_cancel.clicked.connect(self._cancel_all)
+        btn_cancel.clicked.connect(self._stop_all)
         cl.addWidget(btn_cancel, 1)
 
         self._status_lbl = _lbl("", T.GREEN, "9pt")
@@ -238,7 +238,7 @@ class FarmSadiPanel(QWidget):
         self._lay.addWidget(ctrl_card)
         self._lay.addStretch()
 
-        self._update_badge()
+        self._refresh_badge()
 
     # ── Helpers ────────────────────────────────────────────
 
@@ -324,7 +324,7 @@ class FarmSadiPanel(QWidget):
 
     # ── Capture raccourci ──────────────────────────────────
 
-    def _begin_capture(self, inp: QLineEdit):
+    def _start_capture(self, inp: QLineEdit):
         inp.setText("Appuyez sur un raccourci…")
         inp.setStyleSheet(inp.styleSheet().replace(T.ORANGE, T.HINT))
         if self._capture:
@@ -362,7 +362,7 @@ class FarmSadiPanel(QWidget):
         self._capture = _Cap(on_key)
         inp.installEventFilter(self._capture)
 
-    def _clear_shortcut(self):
+    def _reset_shortcut(self):
         self._cfg.setdefault("farmsadi", {})["shortcut"] = ""
         self._sc_inp.setText("Aucun")
         self._sc_inp.setStyleSheet(
@@ -372,19 +372,19 @@ class FarmSadiPanel(QWidget):
 
     # ── Callbacks ──────────────────────────────────────────
 
-    def _on_turns_change(self, val: int):
+    def _on_cycle_change(self, val: int):
         self._mgr.turns = val
         self._cfg.setdefault("farmsadi", {})["turns"] = val
         self._on_save()
 
-    def _cancel_all(self):
+    def _stop_all(self):
         self._mgr.cancel_all()
         self._status_lbl.setText("✅ Compteurs annulés")
         from PySide6.QtCore import QTimer
         QTimer.singleShot(2000, lambda: self._status_lbl.setText(""))
-        self._update_badge()
+        self._refresh_badge()
 
-    def _update_badge(self):
+    def _refresh_badge(self):
         if self._mgr.is_active():
             self._active_badge.setText("● Actif")
             self._active_badge.setStyleSheet(
@@ -393,6 +393,6 @@ class FarmSadiPanel(QWidget):
         else:
             self._active_badge.setText("")
 
-    def refresh_counts(self):
+    def update_counts(self):
         """Appelé après chaque check() pour mettre à jour l'affichage."""
-        self._update_badge()
+        self._refresh_badge()

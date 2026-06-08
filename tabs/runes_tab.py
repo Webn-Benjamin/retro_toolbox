@@ -344,6 +344,79 @@ class RunesTab(QWidget):
     def _build(self):
         lay = QVBoxLayout(self); lay.setContentsMargins(10, 10, 10, 10); lay.setSpacing(8)
 
+        # ── Compteur tentatives exo PA / PM ──────────────────────────
+        self._exo_count = 0
+        exo_card = QFrame()
+        exo_card.setStyleSheet(
+            f"QFrame{{background:{T.SURFACE};border:1px solid {T.BORDER};"
+            f"border-radius:10px;}}"
+            f"QLabel{{background:transparent;border:none;}}")
+        ex = QHBoxLayout(exo_card); ex.setContentsMargins(14, 10, 14, 10); ex.setSpacing(10)
+
+        ex_title = QLabel("⚡ Tentatives exo PA / PM")
+        ex_title.setStyleSheet(f"font-size:10pt;font-weight:bold;color:{T.TEXT};")
+        ex.addWidget(ex_title)
+        ex.addStretch()
+
+        def _btn_ctrl(txt, color):
+            b = QPushButton(txt); b.setFixedSize(34, 34)
+            b.setStyleSheet(
+                f"QPushButton{{background:{color};color:white;border:none;"
+                f"border-radius:8px;font-size:15pt;font-weight:bold;padding:0;}}"
+                f"QPushButton:hover{{opacity:0.85;}}")
+            b.setCursor(Qt.CursorShape.PointingHandCursor)
+            return b
+
+        btn_minus = _btn_ctrl("−", "#e53935")
+        self._exo_lbl = QLabel("0")
+        self._exo_lbl.setFixedWidth(70)
+        self._exo_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._exo_lbl.setStyleSheet(
+            f"font-size:22pt;font-weight:bold;color:{T.ORANGE};"
+            f"background:{T.BG_DARK};border-radius:8px;padding:2px 8px;")
+        btn_plus  = _btn_ctrl("+", T.GRAD1)
+
+        btn_reset = QPushButton("↺ Reset"); btn_reset.setFixedHeight(34)
+        btn_reset.setStyleSheet(
+            f"QPushButton{{background:{T.BG_DARK};color:{T.HINT};"
+            f"border:1px solid {T.BORDER};border-radius:8px;"
+            f"font-size:9pt;font-weight:bold;padding:0 10px;}}"
+            f"QPushButton:hover{{color:{T.RED};border-color:{T.RED};}}")
+        btn_reset.setCursor(Qt.CursorShape.PointingHandCursor)
+
+        def _update_exo():
+            self._exo_lbl.setText(str(self._exo_count))
+            import model; cfg = model.load_config()
+            cfg["exo_count"] = self._exo_count; model.save_config(cfg)
+
+        def _minus():
+            if self._exo_count > 0:
+                self._exo_count -= 1; _update_exo()
+
+        def _plus():
+            self._exo_count += 1; _update_exo()
+
+        def _reset():
+            self._exo_count = 0; _update_exo()
+
+        btn_minus.clicked.connect(_minus)
+        btn_plus.clicked.connect(_plus)
+        btn_reset.clicked.connect(_reset)
+
+        # Charger valeur sauvegardée
+        try:
+            import model; self._exo_count = model.load_config().get("exo_count", 0)
+            self._exo_lbl.setText(str(self._exo_count))
+        except Exception:
+            pass
+
+        ex.addWidget(btn_minus)
+        ex.addWidget(self._exo_lbl)
+        ex.addWidget(btn_plus)
+        ex.addSpacing(8)
+        ex.addWidget(btn_reset)
+        lay.addWidget(exo_card)
+
         # Titre + bouton puit
         tr = QHBoxLayout()
         title = QLabel("Poids des Runes")

@@ -9,7 +9,7 @@ except ImportError:
     KEYBOARD_OK = False
 
 
-class CtrlShiftSimulator:
+class InputRelay:
     """Maintient Ctrl+Shift enfoncé sur la fenêtre active."""
 
     def __init__(self):
@@ -30,13 +30,13 @@ class CtrlShiftSimulator:
                 keyboard.release("ctrl")
         return self._on
 
-    def reapply(self):
+    def sync_keys(self):
         """Ré-appuie Ctrl+Shift après un changement de focus."""
         if not self._on or not KEYBOARD_OK: return
         keyboard.release("shift"); keyboard.release("ctrl")
         keyboard.press("ctrl"); keyboard.press("shift")
 
-    def release_all(self):
+    def clear_keys(self):
         if self._on and KEYBOARD_OK:
             try:
                 keyboard.release("shift")
@@ -45,12 +45,12 @@ class CtrlShiftSimulator:
         self._on = False
 
 
-class HotkeyRegistry:
+class ShortcutTable:
     """Registre de raccourcis globaux identifiés par nom."""
 
     def __init__(self):
         self._registered: dict[str, tuple[str, any]] = {}
-        self.ctrl_shift = CtrlShiftSimulator()
+        self.ctrl_shift = InputRelay()
 
     def add(self, name: str, combo: str, fn: Callable) -> bool:
         if not KEYBOARD_OK or not combo.strip(): return False
@@ -61,7 +61,7 @@ class HotkeyRegistry:
             self._registered[name] = (combo, hook)
             return True
         except Exception as e:
-            print(f"[HotkeyRegistry] {name}={combo}: {e}")
+            print(f"[ShortcutTable] {name}={combo}: {e}")
             return False
 
     def remove(self, name: str):
@@ -74,7 +74,7 @@ class HotkeyRegistry:
         if not KEYBOARD_OK: return
         for name in list(self._registered):
             self.remove(name)
-        self.ctrl_shift.release_all()
+        self.ctrl_shift.clear_keys()
 
     def _is_valid(self, combo: str) -> bool:
         try: keyboard.parse_hotkey(combo); return True
@@ -84,13 +84,13 @@ class HotkeyRegistry:
         return self._is_valid(combo) if KEYBOARD_OK and combo.strip() else False
 
 
-class FarmSadiManager:
+class CycleEngine:
     """
     Mode Farm Sadi — ignore les notifications de combat pendant N tours
     pour les personnages Sadida désignés.
 
     Usage :
-        mgr = FarmSadiManager(turns=3)
+        mgr = CycleEngine(turns=3)
         mgr.set_sadis({"St-Sadi", "St-Sadi2"})
 
         # Appuie raccourci → déclenche le compteur

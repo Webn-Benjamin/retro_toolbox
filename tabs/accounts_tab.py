@@ -7,14 +7,14 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QTimer, QSize, Signal
 import model, theme as T
 
-from tabs.accounts.characters_panel import CharactersPanel
+from tabs.accounts.characters_panel import AccountPanel
 from tabs.accounts.shortcuts_panel   import ShortcutsPanel
-from tabs.accounts.settings_panel    import SettingsPanel
-from tabs.accounts.hotkey_manager    import HotkeyRegistry
-from tabs.accounts.toast_reader      import make_watcher, Notification
-from tabs.accounts.window_manager    import bring_to_front, is_dofus_active
-from tabs.accounts.move_mode         import MoveModeManager
-from tabs.accounts.notif_help        import NotifHelpDialog
+from tabs.accounts.settings_panel    import ConfigPanel
+from tabs.accounts.hotkey_manager    import ShortcutTable
+from tabs.accounts.toast_reader      import make_watcher, AlertEvent
+from tabs.accounts.window_manager    import activate_window, is_game_focused
+from tabs.accounts.move_mode         import SwitchModeCtrl
+from tabs.accounts.notif_help        import AlertGuideDialog
 
 CFG_KEY = "accounts_config"
 
@@ -56,14 +56,14 @@ class AccountsTab(QWidget):
         super().__init__(parent)
         self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self._cfg = model.load_config().get(CFG_KEY, {})
-        self._reg = HotkeyRegistry()
+        self._reg = ShortcutTable()
         self._farm_mode = False
         # Farm Sadi manager
-        from tabs.accounts.hotkey_manager import FarmSadiManager
+        from tabs.accounts.hotkey_manager import CycleEngine
         fs = self._cfg.get("farmsadi", {})
-        self._farmsadi = FarmSadiManager(turns=fs.get("turns", 3))
+        self._farmsadi = CycleEngine(turns=fs.get("turns", 3))
         self._farmsadi.set_sadis(set(fs.get("sadis", [])))
-        self._move_mgr  = MoveModeManager(
+        self._move_mgr  = SwitchModeCtrl(
             cycle_fn=self._next,
             on_state_change=self._on_move_state)
         self._build()
@@ -148,7 +148,7 @@ class AccountsTab(QWidget):
             f"border:none;font-size:8pt;font-weight:bold;padding:2px 8px;margin-right:4px;}}"
             f"QPushButton:hover{{background:{T.ORANGE};color:white;}}")
         btn_help.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn_help.clicked.connect(lambda: NotifHelpDialog(self).exec())
+        btn_help.clicked.connect(lambda: AlertGuideDialog(self).exec())
         tbl.addWidget(btn_help)
         root.addWidget(tbar)
 
@@ -262,7 +262,7 @@ class AccountsTab(QWidget):
         self._stack = QStackedWidget()
         self._stack.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
 
-        self._chars = CharactersPanel(self._cfg, self._save)
+        self._chars = AccountPanel(self._cfg, self._save)
         self._sc    = ShortcutsPanel(
             self._cfg, self._reg, self._save,
             on_next       = self._next,
@@ -271,7 +271,7 @@ class AccountsTab(QWidget):
             on_back       = self._back,
             on_ctrl_shift = self._toggle_cs,
         )
-        self._sets = SettingsPanel(self._cfg, self._save)
+        self._sets = ConfigPanel(self._cfg, self._save)
 
         for p in (self._chars, self._sc, self._sets):
             self._stack.addWidget(p)
@@ -305,15 +305,15 @@ class AccountsTab(QWidget):
     # Exécutés sur le thread Qt principal
     def _next_safe(self):
         self._chars.cycle(+1)
-        self._reg.ctrl_shift.reapply()
+        self._reg.ctrl_shift.sync_keys()
 
     def _prev_safe(self):
         self._chars.cycle(-1)
-        self._reg.ctrl_shift.reapply()
+        self._reg.ctrl_shift.sync_keys()
 
     def _main_safe(self):
         self._chars.go_main()
-        self._reg.ctrl_shift.reapply()
+        self._reg.ctrl_shift.sync_keys()
 
     def _back_safe(self):
         self._chars.go_prev()
@@ -322,10 +322,10 @@ class AccountsTab(QWidget):
         if not self._sets.get("maximize_on_launch", False):
             return
         try:
-            from tabs.accounts.window_manager import scan_windows, WIN32_OK
-            if not WIN32_OK: return
+            from tabs.accounts.window_manager import collect_sessions, _W32
+            if not _W32: return
             import win32gui, win32con
-            for w in scan_windows():
+            for w in collect_sessions():
                 try:
                     win32gui.ShowWindow(w.hwnd, win32con.SW_MAXIMIZE)
                 except Exception:
@@ -411,11 +411,11 @@ class AccountsTab(QWidget):
         self._watcher = make_watcher(self._on_notif, remove=remove)
         self._watcher.start()
 
-    def _on_notif(self, notif: Notification):
+    def _on_notif(self, notif: AlertEvent):
         # Signal thread-safe — appelé depuis le thread winsdk
         self._notif_received.emit(notif)
 
-    def _show_notif(self, notif: Notification):
+    def _show_notif(self, notif: AlertEvent):
         if not notif: return
 
         key          = f"autofocus_{notif.ntype}"
@@ -433,8 +433,8 @@ class AccountsTab(QWidget):
                     self._show_banner(notif,
                         f"🌿 Farm Sadi — {left} tour{'s' if left>1 else ''} restant{'s' if left>1 else ''}")
                     return
-            from tabs.accounts.window_manager import bring_to_front_by_pseudo
-            bring_to_front_by_pseudo(notif.pseudo)
+            from tabs.accounts.window_manager import activate_by_name
+            activate_by_name(notif.pseudo)
             self._chars.set_active(notif.pseudo)
         elif is_combat and farmsadi_on:
             skip, left = self._farmsadi.check(notif.pseudo)
@@ -443,7 +443,7 @@ class AccountsTab(QWidget):
                     f"🌿 Farm Sadi — {left} tour{'s' if left>1 else ''} restant{'s' if left>1 else ''}")
         # Sinon : ignorer complètement, aucun bandeau
 
-    def _show_banner(self, notif: "Notification", text: str):
+    def _show_banner(self, notif: "AlertEvent", text: str):
         color = _NOTIF_COLORS.get(notif.ntype, T.ORANGE)
         self._notif_bar.setStyleSheet(f"QFrame{{background:{color};border:none;}}")
         self._n_icon.setText(notif.emoji)

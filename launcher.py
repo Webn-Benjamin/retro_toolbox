@@ -132,15 +132,15 @@ def _show_update_ui(remote_version: str, notes: str, url: str):
         QLabel  { background: transparent; }
         QPushButton {
             background: #d9791f; color: white; border: none;
-            border-radius: 3px; padding: 6px 14px; font-weight: bold;
+            border-radius: 6px; padding: 6px 14px; font-weight: bold;
         }
         QPushButton:hover { background: #e8883a; }
         QPushButton:disabled { background: #c9b99a; color: #7a6a56; }
         QProgressBar {
             background: #d6c9b0; border: 1px solid #c9b99a;
-            border-radius: 3px; text-align: center;
+            border-radius: 6px; text-align: center;
         }
-        QProgressBar::chunk { background: #d9791f; border-radius: 2px; }
+        QProgressBar::chunk { background: #d9791f; border-radius: 4px; }
     """)
 
     lay = QVBoxLayout(win)
@@ -173,7 +173,7 @@ def _show_update_ui(remote_version: str, notes: str, url: str):
     btn_skip   = QPushButton("Plus tard")
     btn_skip.setStyleSheet(
         "QPushButton{background:#d6c9b0;color:#7a6a56;border:1px solid #c9b99a;"
-        "border-radius:3px;padding:6px 14px;font-weight:bold;}"
+        "border-radius:6px;padding:6px 14px;font-weight:bold;}"
         "QPushButton:hover{background:#c9b99a;}")
     btn_row.addWidget(btn_update)
     btn_row.addWidget(btn_skip)

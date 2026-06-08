@@ -1,82 +1,101 @@
-"""window_manager.py — Détection et contrôle des fenêtres Dofus Rétro."""
+"""window_manager.py — Gestion des sessions Dofus Rétro actives."""
 from __future__ import annotations
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 try:
     import win32gui, win32con, win32api, win32process
-    WIN32_OK = True
+    _W32 = True
 except ImportError:
-    WIN32_OK = False
+    _W32 = False
 
 try:
     import psutil
-    PSUTIL_OK = True
+    _PS = True
 except ImportError:
-    PSUTIL_OK = False
+    _PS = False
 
-_RE_TITLE = re.compile(r"^(.+?)\s*[-–]\s*Dofus", re.IGNORECASE)
-_RE_LOAD  = re.compile(r"^Dofus\s*Retro\b", re.IGNORECASE)
-_short_map: dict[int, str] = {}   # hwnd → titre original avant raccourcissement
+# Patterns de titre Dofus Rétro
+_PTN_SESSION = re.compile(r"^(.+?)\s*[-–]\s*Dofus", re.IGNORECASE)
+_PTN_LOADING = re.compile(r"^Dofus\s*Retro\b",       re.IGNORECASE)
+
+# Registre des titres compactés (hwnd → titre complet)
+_title_registry: dict[int, str] = {}
 
 
 @dataclass
-class DofusWin:
-    hwnd:   int
-    pseudo: str
+class SessionEntry:
+    hwnd:    int
+    pseudo:  str
     loading: bool = False
 
 
-def _check_pid(pid: int) -> bool:
-    if not PSUTIL_OK: return True
+def _pid_alive(pid: int) -> bool:
+    """Vérifie que le process Dofus est encore vivant."""
+    if not _PS:
+        return True
     try:
         return "dofus" in psutil.Process(pid).name().lower()
     except Exception:
         return False
 
 
-def scan_windows() -> list[DofusWin]:
-    """Retourne toutes les fenêtres Dofus Rétro visibles."""
-    if not WIN32_OK:
-        return [DofusWin(1001,"Perso1"), DofusWin(1002,"Perso2"), DofusWin(1003,"Perso3")]
-    result = []
-    def _cb(hwnd, _):
-        if not win32gui.IsWindowVisible(hwnd): return
+def collect_sessions() -> list[SessionEntry]:
+    """Parcourt les fenêtres visibles et retourne les sessions Dofus actives."""
+    if not _W32:
+        return [SessionEntry(1001, "Alpha"), SessionEntry(1002, "Beta"),
+                SessionEntry(1003, "Gamma")]
+
+    sessions: list[SessionEntry] = []
+
+    def _visit(hwnd: int, _):
+        if not win32gui.IsWindowVisible(hwnd):
+            return
         try:
             _, pid = win32process.GetWindowThreadProcessId(hwnd)
-            if not _check_pid(pid): return
-        except Exception: return
+            if not _pid_alive(pid):
+                return
+        except Exception:
+            return
+
         raw = win32gui.GetWindowText(hwnd)
-        # Fenêtre avec titre raccourci — utiliser l'original sauvegardé
-        if hwnd in _short_map:
-            original = _short_map[hwnd]
-            m2 = _RE_TITLE.match(original)
-            if m2:
-                result.append(DofusWin(hwnd=hwnd, pseudo=m2.group(1).strip()))
-            return True
-        m = _RE_TITLE.match(raw)
-        if m:
-            result.append(DofusWin(hwnd=hwnd, pseudo=m.group(1).strip()))
-        elif _RE_LOAD.match(raw):
-            result.append(DofusWin(hwnd=hwnd, pseudo="Chargement…", loading=True))
-    win32gui.EnumWindows(_cb, None)
-    return result
+
+        if hwnd in _title_registry:
+            src = _title_registry[hwnd]
+            hit = _PTN_SESSION.match(src)
+            if hit:
+                sessions.append(SessionEntry(hwnd=hwnd, pseudo=hit.group(1).strip()))
+            return
+
+        hit = _PTN_SESSION.match(raw)
+        if hit:
+            sessions.append(SessionEntry(hwnd=hwnd, pseudo=hit.group(1).strip()))
+        elif _PTN_LOADING.match(raw):
+            sessions.append(SessionEntry(hwnd=hwnd, pseudo="Chargement…", loading=True))
+
+    win32gui.EnumWindows(_visit, None)
+    return sessions
 
 
-def get_pseudo(hwnd: int) -> str | None:
-    if not WIN32_OK: return None
-    if hwnd in _short_map: return win32gui.GetWindowText(hwnd) or None
+def get_display_name(hwnd: int) -> str | None:
+    """Retourne le pseudo associé à une fenêtre, ou None."""
+    if not _W32:
+        return None
+    if hwnd in _title_registry:
+        return win32gui.GetWindowText(hwnd) or None
     raw = win32gui.GetWindowText(hwnd)
-    m = _RE_TITLE.match(raw)
-    return m.group(1).strip() if m else None
+    hit = _PTN_SESSION.match(raw)
+    return hit.group(1).strip() if hit else None
 
 
-def bring_to_front(hwnd: int) -> bool:
-    if not WIN32_OK: return False
+def activate_window(hwnd: int) -> bool:
+    """Met la fenêtre au premier plan."""
+    if not _W32:
+        return False
     try:
         if win32gui.IsIconic(hwnd):
             win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
-        # Trick ALT pour contourner SetForegroundWindow restrictions
+        # Contourne la restriction SetForegroundWindow via ALT simulé
         win32api.keybd_event(win32con.VK_MENU, 0, 0, 0)
         try:
             win32gui.SetForegroundWindow(hwnd)
@@ -87,44 +106,61 @@ def bring_to_front(hwnd: int) -> bool:
         return False
 
 
-def bring_to_front_by_pseudo(pseudo: str) -> bool:
-    for w in scan_windows():
-        if w.pseudo.lower() == pseudo.lower():
-            return bring_to_front(w.hwnd)
+def activate_by_name(pseudo: str) -> bool:
+    """Met au premier plan la session correspondant au pseudo."""
+    for session in collect_sessions():
+        if session.pseudo.lower() == pseudo.lower():
+            return activate_window(session.hwnd)
     return False
 
 
-def current_foreground_hwnd() -> int | None:
-    if not WIN32_OK: return None
-    try: return win32gui.GetForegroundWindow()
-    except: return None
+def foreground_handle() -> int | None:
+    """Retourne le hwnd de la fenêtre en premier plan."""
+    if not _W32:
+        return None
+    try:
+        return win32gui.GetForegroundWindow()
+    except Exception:
+        return None
 
 
-def is_dofus_active() -> bool:
-    if not WIN32_OK: return False
+def is_game_focused() -> bool:
+    """Indique si une fenêtre Dofus est actuellement au premier plan."""
+    if not _W32:
+        return False
     try:
         hwnd = win32gui.GetForegroundWindow()
-        if hwnd in _short_map: return True
+        if hwnd in _title_registry:
+            return True
         raw = win32gui.GetWindowText(hwnd)
-        return bool(_RE_TITLE.match(raw) or _RE_LOAD.match(raw))
-    except: return False
+        return bool(_PTN_SESSION.match(raw) or _PTN_LOADING.match(raw))
+    except Exception:
+        return False
 
 
-def apply_short_titles(enabled: bool):
-    if not WIN32_OK: return
-    def _cb(hwnd, _):
-        if not win32gui.IsWindowVisible(hwnd): return
+def apply_compact_titles(enabled: bool):
+    """Active ou désactive les titres courts sur les fenêtres Dofus."""
+    if not _W32:
+        return
+
+    def _visit(hwnd: int, _):
+        if not win32gui.IsWindowVisible(hwnd):
+            return
         raw = win32gui.GetWindowText(hwnd)
         if enabled:
-            m = _RE_TITLE.match(raw)
-            if not m: return
-            _short_map[hwnd] = raw  # sauvegarder le titre complet
-            try: win32gui.SetWindowText(hwnd, m.group(1).strip())
-            except: pass
-        else:
-            # Restaurer depuis la map — fonctionne même si titre déjà raccourci
-            if hwnd in _short_map:
-                original = _short_map.pop(hwnd)
-                try: win32gui.SetWindowText(hwnd, original)
-                except: pass
-    win32gui.EnumWindows(_cb, None)
+            hit = _PTN_SESSION.match(raw)
+            if not hit:
+                return
+            _title_registry[hwnd] = raw
+            try:
+                win32gui.SetWindowText(hwnd, hit.group(1).strip())
+            except Exception:
+                pass
+        elif hwnd in _title_registry:
+            saved = _title_registry.pop(hwnd)
+            try:
+                win32gui.SetWindowText(hwnd, saved)
+            except Exception:
+                pass
+
+    win32gui.EnumWindows(_visit, None)

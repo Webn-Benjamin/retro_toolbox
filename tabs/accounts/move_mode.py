@@ -11,7 +11,7 @@ WM_LBUTTONDOWN = 0x0201
 LLMHF_INJECTED = 0x00000001
 
 
-class MSLLHOOKSTRUCT(ctypes.Structure):
+class MouseHookData(ctypes.Structure):
     _fields_ = [
         ("pt",          wt.POINT),
         ("mouseData",   wt.DWORD),
@@ -21,7 +21,7 @@ class MSLLHOOKSTRUCT(ctypes.Structure):
     ]
 
 
-class MoveModeManager:
+class SwitchModeCtrl:
     """
     Mode deplacement : hook souris bas niveau (WH_MOUSE_LL).
     A chaque clic gauche sur une fenetre Dofus, appelle cycle_fn
@@ -39,7 +39,7 @@ class MoveModeManager:
         self._hook            = None
         self._proc            = None
         self._thread          = threading.Thread(
-            target=self._hook_loop, daemon=True, name="MoveModeHook")
+            target=self._monitor_loop, daemon=True, name="MoveModeHook")
         self._thread.start()
 
     def toggle(self) -> bool:
@@ -52,20 +52,20 @@ class MoveModeManager:
     def is_active(self) -> bool:
         return self._active
 
-    def _is_dofus_hwnd(self, hwnd: int) -> bool:
+    def _is_game_hwnd(self, hwnd: int) -> bool:
         try:
-            from tabs.accounts.window_manager import _RE_TITLE, _RE_LOAD
+            from tabs.accounts.window_manager import _PTN_SESSION, _PTN_LOADING
             title_buf = ctypes.create_unicode_buffer(256)
             ctypes.windll.user32.GetWindowTextW(hwnd, title_buf, 256)
             title = title_buf.value
-            return bool(_RE_TITLE.match(title) or _RE_LOAD.match(title))
+            return bool(_PTN_SESSION.match(title) or _PTN_LOADING.match(title))
         except Exception:
             return False
 
-    def _hook_loop(self):
+    def _monitor_loop(self):
         LowLevelMouseProc = ctypes.WINFUNCTYPE(
             ctypes.c_int, ctypes.c_int, wt.WPARAM,
-            ctypes.POINTER(MSLLHOOKSTRUCT),
+            ctypes.POINTER(MouseHookData),
         )
 
         def _callback(nCode, wParam, lParam):
@@ -77,7 +77,7 @@ class MoveModeManager:
                             hwnd_under = ctypes.windll.user32.WindowFromPoint(pt)
                             # Remonter a la fenetre racine
                             hwnd_root = ctypes.windll.user32.GetAncestor(hwnd_under, 2)
-                            if self._is_dofus_hwnd(hwnd_root):
+                            if self._is_game_hwnd(hwnd_root):
                                 now = time.monotonic()
                                 if now - self._last_ts >= (self.COOLDOWN_MS / 1000.0):
                                     self._last_ts = now

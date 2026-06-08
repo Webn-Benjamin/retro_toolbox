@@ -15,9 +15,10 @@ POS_V = ['Haut',   'Centre', 'Bas']
 def _pos_btn(text, active, callback):
     b = QPushButton(text)
     b.setFixedHeight(22)
+    bg    = T.ORANGE if active else T.BG_DARK
+    color = "white" if active else T.SUBTEXT
     b.setStyleSheet(
-        f"QPushButton{{background:{'T.ORANGE' if active else 'T.BG_DARK'};"
-        f"color:{'white' if active else 'T.SUBTEXT'};"
+        f"QPushButton{{background:{bg};color:{color};"
         f"border:none;border-radius:6px;padding:0 6px;font-size:7pt;font-weight:bold;}}"
         f"QPushButton:hover{{background:#d9791f;color:white;}}")
     b.clicked.connect(callback)
@@ -114,9 +115,10 @@ class GroupCard(QFrame):
         self._pos_h = val
         for h, b in self._h_btns.items():
             active = (h == val)
+            bg    = T.ORANGE if active else T.BG_DARK
+            color = "white" if active else T.SUBTEXT
             b.setStyleSheet(
-                f"QPushButton{{background:{'T.ORANGE' if active else 'T.BG_DARK'};"
-                f"color:{'white' if active else 'T.SUBTEXT'};"
+                f"QPushButton{{background:{bg};color:{color};"
                 f"border:none;border-radius:6px;padding:0 6px;font-size:7pt;font-weight:bold;}}"
                 f"QPushButton:hover{{background:#d9791f;color:white;}}")
         self._save_pos()
@@ -125,9 +127,10 @@ class GroupCard(QFrame):
         self._pos_v = val
         for v, b in self._v_btns.items():
             active = (v == val)
+            bg    = T.ORANGE if active else T.BG_DARK
+            color = "white" if active else T.SUBTEXT
             b.setStyleSheet(
-                f"QPushButton{{background:{'T.ORANGE' if active else 'T.BG_DARK'};"
-                f"color:{'white' if active else 'T.SUBTEXT'};"
+                f"QPushButton{{background:{bg};color:{color};"
                 f"border:none;border-radius:6px;padding:0 6px;font-size:7pt;font-weight:bold;}}"
                 f"QPushButton:hover{{background:#d9791f;color:white;}}")
         self._save_pos()
@@ -409,7 +412,7 @@ class TimerTab(QWidget):
             self._switch_map(first)
 
     def rename_map(self, old_name, new_name):
-        """Met à jour le bouton après renommage."""
+        """Met à jour le bouton et les GroupCards après renommage."""
         if old_name in self._map_btns:
             btn = self._map_btns.pop(old_name)
             btn.setText(new_name)
@@ -418,5 +421,11 @@ class TimerTab(QWidget):
             btn.mouseDoubleClickEvent = lambda e, n=new_name: self._open_rename(n)
             self._map_btns[new_name] = btn
         if old_name in self._panels:
-            self._panels[new_name] = self._panels.pop(old_name)
+            panel = self._panels.pop(old_name)
+            self._panels[new_name] = panel
+            # Mettre à jour _map_name dans tous les GroupCards du panel
+            for i in range(panel.layout().count()):
+                widget = panel.layout().itemAt(i).widget()
+                if widget and hasattr(widget, '_map_name'):
+                    widget._map_name = new_name
         self._current_map = new_name
