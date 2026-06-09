@@ -23,6 +23,23 @@ def _quartz_wins() -> list[dict]:
     except Exception:
         return []
 
+def has_screen_permission() -> bool:
+    """Vérifie si l'app a la permission Enregistrement d'écran (macOS 10.15+)."""
+    try:
+        import Quartz
+        # Tenter de lire les titres : si vide alors qu'il y a des fenêtres, permission manquante
+        wins = Quartz.CGWindowListCopyWindowInfo(
+            Quartz.kCGWindowListOptionOnScreenOnly, Quartz.kCGNullWindowID)
+        if wins:
+            # Vérifier si on peut lire les noms
+            for w in wins:
+                if w.get("kCGWindowName") is not None:
+                    return True
+            return False  # fenêtres présentes mais noms masqués = pas de permission
+        return True
+    except Exception:
+        return False
+
 def list_windows() -> list[GameWindow]:
     result = []
     for w in _quartz_wins():

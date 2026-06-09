@@ -54,6 +54,28 @@ class AccountsTab(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        # Vérifier permission Enregistrement d'écran sur Mac
+        import sys as _sys
+        if _sys.platform == "darwin":
+            try:
+                from os_bridge.mac import has_screen_permission
+                if not has_screen_permission():
+                    from PySide6.QtWidgets import QMessageBox
+                    from PySide6.QtCore import QTimer
+                    def _warn():
+                        msg = QMessageBox()
+                        msg.setWindowTitle("Permission requise — macOS")
+                        msg.setText(
+                            "Retro Toolbox a besoin de la permission\n"
+                            "Enregistrement d'écran pour détecter Dofus.\n\n"
+                            "Réglages Système → Confidentialité\n"
+                            "→ Enregistrement d'écran\n"
+                            "→ Ajouter Terminal ou Python")
+                        msg.setIcon(QMessageBox.Icon.Warning)
+                        msg.exec()
+                    QTimer.singleShot(500, _warn)
+            except Exception:
+                pass
         self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
         self._cfg = model.load_config().get(CFG_KEY, {})
         self._reg = ShortcutTable()
@@ -322,8 +344,7 @@ class AccountsTab(QWidget):
         if not self._sets.get("maximize_on_launch", False):
             return
         try:
-            from tabs.accounts.window_manager import collect_sessions, _W32
-            if not _W32: return
+            from tabs.accounts.window_manager import collect_sessions
             import win32gui, win32con
             for w in collect_sessions():
                 try:
