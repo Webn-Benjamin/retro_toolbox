@@ -60,10 +60,10 @@ class AccountsTab(QWidget):
             try:
                 from os_bridge.mac import has_screen_permission
                 if not has_screen_permission():
-                    from PySide6.QtWidgets import QMessageBox
-                    from PySide6.QtCore import QTimer
+                    from PySide6.QtWidgets import QMessageBox as _QMB
+                    from PySide6.QtCore import QTimer as _QT
                     def _warn():
-                        msg = QMessageBox()
+                        msg = _QMB()
                         msg.setWindowTitle("Permission requise — macOS")
                         msg.setText(
                             "Retro Toolbox a besoin de la permission\n"
@@ -71,9 +71,9 @@ class AccountsTab(QWidget):
                             "Réglages Système → Confidentialité\n"
                             "→ Enregistrement d'écran\n"
                             "→ Ajouter Terminal ou Python")
-                        msg.setIcon(QMessageBox.Icon.Warning)
+                        msg.setIcon(_QMB.Icon.Warning)
                         msg.exec()
-                    QTimer.singleShot(500, _warn)
+                    _QT.singleShot(500, _warn)
             except Exception:
                 pass
         self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
