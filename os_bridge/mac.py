@@ -262,28 +262,44 @@ def _read_new_notifs(db_path: str, since_id: int) -> list[dict]:
     return results
 
 
-# ─── Surveillance bannière notification via Quartz (fallback) ─────────
+# ─── Surveillance bannière notification via Quartz ───────────────────
 def _watch_notif_banner(callback):
     """
-    Détecte les bannières de notification Dofus via Quartz.
-    Fonctionne même sans accès à la DB.
+    Surveille TOUTES les nouvelles fenêtres — détecte les bannières de
+    notification par leur contenu (pas par leur owner).
     """
+    _DOFUS_KW = ["jouer","tour","trade","échange","exchange","combat",
+                 "groupe","group","message"," mp ","défi","challenge",
+                 "craft","pvp","percepteur","dofus"]
     seen: set[int] = set()
+    known: set[int] = set()
+
     while True:
         try:
-            for w in _quartz_wins():
-                owner = (w.get("kCGWindowOwnerName") or "").lower()
-                title = (w.get("kCGWindowName") or "").strip()
+            current_wins = _quartz_wins()
+            current_ids  = {w.get("kCGWindowNumber",0) for w in current_wins}
+
+            # Détecter les NOUVELLES fenêtres
+            new_ids = current_ids - known
+            known   = current_ids
+
+            for w in current_wins:
                 wid   = w.get("kCGWindowNumber", 0)
-                # Bannière notification = fenêtre du NotificationCenter
-                if "notificationcenter" not in owner and                    "notification center" not in owner: continue
-                if wid in seen or not title: continue
-                # Vérifier si c'est une notif Dofus
-                if "dofus" in title.lower() or any(
-                    kw in title.lower() for kw in
-                    ["jouer","trade","échange","combat","groupe","message","mp"]):
+                if wid not in new_ids or wid in seen: continue
+
+                owner = (w.get("kCGWindowOwnerName") or "").lower()
+                title = (w.get("kCGWindowName") or "").strip().lower()
+                layer = w.get("kCGWindowLayer", 0)
+
+                # Ignorer nos propres fenêtres et Dofus lui-même
+                if "python" in owner or "retro toolbox" in owner: continue
+                if "dofus" in owner: continue
+
+                # Chercher une bannière contenant du contenu Dofus
+                content = f"{owner} {title}"
+                if any(kw in content for kw in _DOFUS_KW):
                     seen.add(wid)
-                    wins = list_windows()
+                    wins   = list_windows()
                     pseudo = wins[0].pseudo if wins else ""
                     if pseudo:
                         try:
@@ -292,13 +308,14 @@ def _watch_notif_banner(callback):
                             if ntype == "other": ntype = "combat"
                         except Exception:
                             ntype = "combat"
+                        print(f"[Mac Banner] {owner} | {title} → {ntype}: {pseudo}")
                         callback(pseudo, ntype)
-            # Nettoyer les bannières disparues
-            current = {w.get("kCGWindowNumber",0) for w in _quartz_wins()}
-            seen &= current
+
+            # Nettoyer
+            seen &= current_ids
         except Exception:
             pass
-        time.sleep(0.2)
+        time.sleep(0.15)
 
 
 # ─── AlertWatcher — double mécanisme : notifications + polling titres ─
