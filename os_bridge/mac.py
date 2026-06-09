@@ -19,7 +19,7 @@ def _quartz_wins() -> list[dict]:
     try:
         import Quartz
         wins = Quartz.CGWindowListCopyWindowInfo(
-            Quartz.kCGWindowListOptionAll |
+            Quartz.kCGWindowListOptionOnScreenOnly |
             Quartz.kCGWindowListExcludeDesktopElements,
             Quartz.kCGNullWindowID)
         return list(wins) if wins else []
@@ -31,7 +31,7 @@ def has_screen_permission() -> bool:
     try:
         import Quartz
         wins = Quartz.CGWindowListCopyWindowInfo(
-            Quartz.kCGWindowListOptionAll, Quartz.kCGNullWindowID)
+            Quartz.kCGWindowListOptionOnScreenOnly, Quartz.kCGNullWindowID)
         if wins:
             for w in wins:
                 if w.get("kCGWindowName") is not None:
@@ -50,12 +50,8 @@ def list_windows() -> list[GameWindow]:
         owner = (w.get("kCGWindowOwnerName") or "").lower()
         wid   = w.get("kCGWindowNumber", 0)
         layer = w.get("kCGWindowLayer", 0)
-        # layer 0 = normal, layer -1 = minimisé
-        if layer not in (0, -1) or wid in seen_ids: continue
+        if layer != 0 or wid in seen_ids: continue
         if "dofus" not in owner: continue
-        # Ignorer les fenêtres sans taille (sous-éléments)
-        bounds = w.get("kCGWindowBounds", {})
-        if bounds.get("Width", 0) < 100: continue
         seen_ids.add(wid)
         title = (w.get("kCGWindowName") or "").strip()
         clean = re.sub(r"^\[!\]\s*", "", title)
@@ -151,62 +147,39 @@ def simulate_ctrl_shift(key: str):
 
 
 def register_hotkey(combo: str, fn: Callable) -> bool:
-    """Raccourcis globaux Mac via CGEventTap (sans pynput)."""
+    """Raccourcis globaux Mac via NSEvent global monitor."""
     try:
-        import Quartz
+        from AppKit import NSEvent
         import threading
 
         parts   = combo.lower().replace("ctrl","control").split("+")
         mod_map = {
-            "control": Quartz.kCGEventFlagMaskControl,
-            "cmd":     Quartz.kCGEventFlagMaskCommand,
-            "alt":     Quartz.kCGEventFlagMaskAlternate,
-            "shift":   Quartz.kCGEventFlagMaskShift,
+            "control": 1 << 18,  # NSControlKeyMask
+            "cmd":     1 << 20,  # NSCommandKeyMask
+            "alt":     1 << 19,  # NSAlternateKeyMask
+            "shift":   1 << 17,  # NSShiftKeyMask
         }
-        key_map = {
-            "tab":"\t","space":" ","return":"\r","escape":"\x1b",
-            "f1":122,"f2":120,"f3":99,"f4":118,"f5":96,"f6":97,
-        }
-        mods_mask = 0
-        char_key  = None
+        mods_needed = 0
+        char_key    = None
         for p in parts:
-            if p in mod_map: mods_mask |= mod_map[p]
-            else: char_key = p
+            if p in mod_map: mods_needed |= mod_map[p]
+            else:            char_key = p
 
         if char_key is None: return False
 
-        def _callback(proxy, etype, event, refcon):
+        NSKeyDownMask = 1 << 10
+
+        def _handler(event):
             try:
-                flags = Quartz.CGEventGetFlags(event)
-                ch    = Quartz.CGEventGetIntegerValueField(
-                    event, Quartz.kCGKeyboardEventKeycode)
-                # Vérifier les modificateurs
-                if (flags & mods_mask) == mods_mask:
-                    # Vérifier la touche
-                    ev_char = Quartz.CGEventKeyboardGetUnicodeString(event, 1, None, None)
-                    if ev_char and ev_char[0].lower() == char_key:
-                        fn()
+                chars = (event.charactersIgnoringModifiers() or "").lower()
+                flags = event.modifierFlags() & 0xFFFF0000
+                if chars == char_key and (flags & mods_needed) == mods_needed:
+                    fn()
             except Exception: pass
-            return event
 
-        _CB = Quartz.CGEventTapCallBack(_callback)
-        tap = Quartz.CGEventTapCreate(
-            Quartz.kCGSessionEventTap,
-            Quartz.kCGHeadInsertEventTap,
-            Quartz.kCGEventTapOptionDefault,
-            Quartz.CGEventMaskBit(Quartz.kCGEventKeyDown),
-            _CB, None)
-
-        if not tap: return False
-
-        src  = Quartz.CFMachPortCreateRunLoopSource(None, tap, 0)
-        loop = Quartz.CFRunLoopGetCurrent()
-        Quartz.CFRunLoopAddSource(loop, src, Quartz.kCFRunLoopCommonModes)
-        Quartz.CGEventTapEnable(tap, True)
-
-        def _run(): Quartz.CFRunLoopRun()
-        t = threading.Thread(target=_run, daemon=True); t.start()
-        return True
+        monitor = NSEvent.addGlobalMonitorForEventsMatchingMask_handler_(
+            NSKeyDownMask, _handler)
+        return monitor is not None
     except Exception as e:
         print(f"[Mac] Raccourci {combo} non disponible: {e}")
         return False
