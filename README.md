@@ -6,7 +6,7 @@
 
 **Outil de gestion pour Dofus Rétro**
 
-[![Version](https://img.shields.io/badge/version-1.1.2-orange?style=flat-square)](https://retro-toolbox.fr)
+[![Version](https://img.shields.io/badge/version-1.1.3-orange?style=flat-square)](https://retro-toolbox.fr)
 [![Platform](https://img.shields.io/badge/platform-Windows-blue?style=flat-square)](https://retro-toolbox.fr)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue?style=flat-square)](https://python.org)
 [![License](https://img.shields.io/badge/license-Source%20Available-lightgrey?style=flat-square)](LICENSE)
@@ -23,27 +23,45 @@
 |--------|-------------|
 | 👥 **Comptes** | Gestion multi-comptes — détection fenêtres Dofus, autofocus notifications, raccourcis globaux, profils d'ordre |
 | 👤 **Dashboard** | Vue de tous vos personnages — classe, niveau, serveur, kamas, stuff complet et notes |
-| 💎 **Runes** | Tableau de poids des runes, calculateur de puit détachable et compteur de tentatives exo PA/PM |
+| 💎 **Runes** | Tableau de poids des runes, calculateur de puit, estimation d'obtention PA/PM et compteur de tentatives exo |
 | 📝 **Todo** | Journal d'objectifs avec mise en forme — gras, couleurs, tailles, cases à cocher |
 | ⏱ **Timer** | Suivi de respawn multi-maps et multi-groupes avec alertes automatiques |
 | ⚔ **Challenges** | Gestionnaire de sorts par classe — clic pour griser, glisser pour réorganiser |
 | 🎯 **Dots** | Overlay transparent — marquez des positions sur votre écran via raccourci clavier |
-| 🔧 **Craft** | Calculateur de craft — coût des ressources, prix hôtel de vente, marge. Détection automatique du nom de ressource via clic droit sur Dofus |
+| 🔧 **Craft** | Calculateur de craft — coût des ressources, prix hôtel de vente, marge et OCR clic droit |
+| 🕐 **Session** | Chrono de farm, compteur de donjons et récapitulatif automatique de session |
 | ⚙ **Paramètres** | Dossier de données, seuil d'alerte timer en minutes, thème clair/sombre |
-| 📊 **Détails** | Statistiques de session : kills, rares, durée, moyennes |
+| 📊 **Détails** | À propos — version et lien Discord |
+
+---
 
 ### Onglet Comptes — détail
 
-- **Détection automatique** des fenêtres Dofus ouvertes (polling toutes les 3s)
-- **Autofocus** sur notifications Toast Windows : combat, échange, groupe, MP, défi, craft, PvP
-- **Raccourcis globaux** configurables : suivant/précédent/principal/retour/Ctrl+Shift simulé
-- **Mode Farm** : désactive l'autofocus combat d'un clic
-- **Mode Déplacement** : clic gauche sur Dofus = personnage suivant automatiquement
-- **Mode Farm Sadi** : ignore N tours de combat pour les Sadidas désignés
-- **Profils d'ordre** : sauvegardez et appliquez des configurations prédéfinies (ex: "Farm Arakne")
-- **Indicateur de tour actif** : surbrillance verte du personnage dont c'est le tour
-- **Raccourcir les titres** de fenêtre dans la barre des tâches
-- **Maximiser à l'ouverture** automatique des fenêtres Dofus
+| Feature | Description |
+|---------|-------------|
+| 🔍 **Détection automatique** | Détecte les fenêtres Dofus ouvertes toutes les 3s, y compris les fenêtres en chargement |
+| 🔔 **Autofocus notifications** | Bascule sur le bon personnage à la réception d'une notification Toast Windows (combat, échange, groupe, MP, défi, craft, PvP) |
+| ⌨ **Raccourcis globaux** | Configurables : suivant, précédent, principal, retour, Ctrl+Shift simulé |
+| 🚜 **Mode Farm** | Désactive l'autofocus combat d'un clic pour farmer sans interruption |
+| 🖱 **Mode Déplacement** | Clic gauche sur Dofus = switch automatique vers le personnage suivant |
+| 🌿 **Mode Farm Sadi** | Ignore N tours de combat pour les Sadidas désignés |
+| 📋 **Profils d'ordre** | Sauvegardez et appliquez des configurations prédéfinies (ex : "Farm Arakne") |
+| 🟢 **Indicateur de tour** | Surbrillance verte du personnage dont c'est le tour |
+| 🏷 **Titres courts** | Raccourcit les titres de fenêtre dans la barre des tâches |
+| ⬆ **Maximiser à l'ouverture** | Maximise automatiquement les fenêtres Dofus au lancement |
+
+---
+
+### Onglet Runes — détail
+
+| Feature | Description |
+|---------|-------------|
+| 📋 **Tableau de poids** | Poids Simple, Pa, Ra et Unité pour toutes les statistiques du jeu |
+| 🧮 **Calculateur de puit** | Calcule le puit restant après chaque tentative — inline ou fenêtre détachable |
+| 📊 **Calcul rune PA/PM** | Taux d'obtention exact selon le type (PA ou PM) et le niveau de l'item, avec estimation du nombre de runes sur X crafts — inline ou fenêtre détachable |
+| ⚡ **Compteur exo PA/PM** | Suivi des tentatives exo avec boutons + / − et reset, valeur sauvegardée entre les sessions |
+
+---
 
 ### Onglet Craft — détail
 
@@ -53,16 +71,19 @@
 | 🧮 **Calcul automatique** | Coût total calculé en temps réel à partir des quantités et prix unitaires |
 | 📊 **Comparaison prix** | Saisissez le prix hôtel de vente — la marge s'affiche en vert (bénéfice) ou rouge (perte) |
 | 💰 **Formatage kamas** | Les prix sont formatés avec espaces automatiquement (10 000, 1 000 000) |
-| 🖱 **OCR clic droit** | Clic droit sur une ressource dans Dofus — le nom est reconnu et rempli automatiquement |
+| 🖱 **OCR clic droit** | Clic droit sur une ressource dans Dofus — le nom est reconnu et rempli automatiquement dans le premier champ vide |
 | 💾 **Sauvegarde** | Tous vos crafts sont sauvegardés et restaurés à chaque ouverture |
 
-### Onglet Runes — détail
+---
+
+### Onglet Session — détail
 
 | Feature | Description |
 |---------|-------------|
-| 📋 **Tableau de poids** | Poids Simple, Pa, Ra et Unité pour toutes les statistiques du jeu |
-| 🧮 **Calculateur de puit** | Calculez le puit restant après chaque tentative — inline ou fenêtre détachable |
-| ⚡ **Compteur exo PA/PM** | Boutons + / − et reset pour suivre vos tentatives, valeur sauvegardée entre les sessions |
+| ⏱ **Chrono de farm** | Démarrer, mettre en pause et réinitialiser le temps de session en cours |
+| 🏰 **Compteur de donjons** | Incrémentez / décrémentez le nombre de donjons effectués avec boutons + / − et reset |
+| 📊 **Récapitulatif automatique** | Calcule en temps réel les donjons par heure et le temps moyen par donjon |
+| 💾 **Persistance** | Le chrono et le compteur sont sauvegardés et restaurés à chaque ouverture |
 
 ---
 
@@ -83,7 +104,7 @@ pip install PySide6 pywin32 keyboard psutil winsdk pillow pytesseract
 > Téléchargement gratuit : [Tesseract for Windows](https://github.com/UB-Mannheim/tesseract/wiki)
 > Installer dans `C:\Program Files\Tesseract-OCR\` (chemin détecté automatiquement).
 
-> Si l'application ne se lance pas, installe également :
+> Si l'application ne se lance pas, installer également :
 > **[Visual C++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe)** (Microsoft, gratuit)
 
 ---
@@ -124,14 +145,15 @@ retro_toolbox/
 ├── tabs/
 │   ├── accounts_tab.py        # Onglet comptes / multi-compte
 │   ├── dashboard_tab.py       # Onglet dashboard personnages
-│   ├── timer_tab.py           # Onglet timer
-│   ├── challenges_tab.py      # Onglet challenges économe
-│   ├── runes_tab.py           # Onglet runes / puit / compteur exo
+│   ├── timer_tab.py           # Onglet timer respawn
+│   ├── challenges_tab.py      # Onglet challenges / sorts
+│   ├── runes_tab.py           # Onglet runes / puit / calcul PA-PM / exo
 │   ├── todo_tab.py            # Onglet todo list
 │   ├── overlay_tab.py         # Onglet dots / overlay
 │   ├── settings_tab.py        # Onglet paramètres
 │   ├── craft_tab.py           # Onglet craft / calculateur / OCR clic droit
-│   ├── about_tab.py           # Onglet détails / stats
+│   ├── session_tab.py         # Onglet session / chrono / donjons
+│   ├── about_tab.py           # Onglet détails / à propos
 │   └── accounts/
 │       ├── window_manager.py  # Détection fenêtres Dofus (Win32)
 │       ├── toast_reader.py    # Lecture notifications Toast (winsdk)

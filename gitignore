@@ -2,11 +2,11 @@
 dist/
 build/
 *.spec
-
-# ── Build Nuitka ────────────────────────────────────────────
-main.build/
-main.dist/
-main.onefile-build/
+*/__pycache__/
+**/__pycache__/
+__pycache__/
+build/
+build/**
 
 # ── Exécutables ─────────────────────────────────────────────
 *.exe
