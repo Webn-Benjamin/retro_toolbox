@@ -412,52 +412,42 @@ def _start_notification_listeners(callback: Callable):
     import threading
 
     def _start_ocr_watcher():
-        """
-        Détecte les notifications Dofus via OCR du coin supérieur droit.
-        OCR déclenché UNIQUEMENT quand une nouvelle fenêtre apparaît = efficace.
-        """
         try:
             import Quartz
             from PIL import ImageGrab
             import pytesseract
 
-            known_wids: set[int] = set()
             seen_texts: set[str] = set()
+            last_text = ""
 
             while True:
                 try:
-                    wins = Quartz.CGWindowListCopyWindowInfo(
-                        Quartz.kCGWindowListOptionOnScreenOnly,
-                        Quartz.kCGNullWindowID)
+                    screen = Quartz.CGDisplayBounds(Quartz.CGMainDisplayID())
+                    sw = int(screen.size.width)
+                    sh = int(screen.size.height)
+                    # Coin notification haut droite (adapté Retina et non-Retina)
+                    x1 = max(0, sw - 420)
+                    img = ImageGrab.grab(bbox=(x1, 0, sw, 180))
+                    text = pytesseract.image_to_string(
+                        img, config="--psm 6").strip()
 
-                    current_wids = {w.get("kCGWindowNumber",0) for w in wins}
-                    new_wids = current_wids - known_wids
-                    known_wids = current_wids
-
-                    if new_wids:
-                        # Nouvelle fenêtre détectée — capturer le coin notification
-                        screen = Quartz.CGDisplayBounds(Quartz.CGMainDisplayID())
-                        sw = int(screen.size.width)
-                        # Zone notification : 350px depuis la droite, 150px depuis le haut
-                        x1 = sw - 380
-                        img = ImageGrab.grab(bbox=(x1, 0, sw, 160))
-                        text = pytesseract.image_to_string(img, config="--psm 6").strip()
-
-                        if text and text not in seen_texts:
-                            seen_texts.add(text)
-                            if len(seen_texts) > 20: seen_texts.pop()
-                            if any(kw in text.lower() for kw in
-                                   ["dofus","jouer","play","trade","échange",
-                                    "groupe","group","message","défi","challenge",
-                                    "craft","pvp","percepteur"]):
+                    if text and text != last_text and len(text) > 5:
+                        last_text = text
+                        tl = text.lower()
+                        if any(kw in tl for kw in
+                               ["dofus","jouer","play","trade","échange",
+                                "exchange","groupe","group","message","défi",
+                                "challenge","craft","pvp","percepteur","turn"]):
+                            if text not in seen_texts:
+                                seen_texts.add(text)
+                                if len(seen_texts) > 15: seen_texts.pop()
                                 print(f"[Mac OCR] {text[:80]}")
                                 _dispatch_notif(text, callback)
-
                 except Exception:
                     pass
-                time.sleep(0.2)
+                time.sleep(0.4)
         except Exception as e:
-            print(f"[Mac OCR] Non disponible: {e}")
+            print(f"[Mac OCR] Erreur: {e}")
 
     threading.Thread(target=_start_ocr_watcher, daemon=True).start()
 
