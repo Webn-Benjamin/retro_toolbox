@@ -411,50 +411,55 @@ def _start_notification_listeners(callback: Callable):
     """
     import threading
 
-    def _start_ax_watcher():
-        seen: set[str] = set()
-        script = '''
-tell application "System Events"
-    try
-        tell process "NotificationCenter"
-            set texts to {}
-            repeat with w in windows
-                try
-                    set texts to texts & {name of w}
-                end try
-                try
-                    repeat with el in UI elements of w
-                        try
-                            set texts to texts & {value of el}
-                        end try
-                        try
-                            set texts to texts & {description of el}
-                        end try
-                    end repeat
-                end try
-            end repeat
-            return texts
-        end tell
-    on error
-        return {}
-    end try
-end tell
-'''
-        while True:
-            try:
-                result = subprocess.run(
-                    ["osascript", "-e", script],
-                    capture_output=True, text=True, timeout=2)
-                out = result.stdout.strip()
-                if out and out not in seen:
-                    seen.add(out)
-                    if len(seen) > 30: seen.pop()
-                    _dispatch_notif(out, callback)
-            except Exception:
-                pass
-            time.sleep(0.25)
+    def _start_ocr_watcher():
+        """
+        Détecte les notifications Dofus via OCR du coin supérieur droit.
+        OCR déclenché UNIQUEMENT quand une nouvelle fenêtre apparaît = efficace.
+        """
+        try:
+            import Quartz
+            from PIL import ImageGrab
+            import pytesseract
 
-    threading.Thread(target=_start_ax_watcher, daemon=True).start()
+            known_wids: set[int] = set()
+            seen_texts: set[str] = set()
+
+            while True:
+                try:
+                    wins = Quartz.CGWindowListCopyWindowInfo(
+                        Quartz.kCGWindowListOptionOnScreenOnly,
+                        Quartz.kCGNullWindowID)
+
+                    current_wids = {w.get("kCGWindowNumber",0) for w in wins}
+                    new_wids = current_wids - known_wids
+                    known_wids = current_wids
+
+                    if new_wids:
+                        # Nouvelle fenêtre détectée — capturer le coin notification
+                        screen = Quartz.CGDisplayBounds(Quartz.CGMainDisplayID())
+                        sw = int(screen.size.width)
+                        # Zone notification : 350px depuis la droite, 150px depuis le haut
+                        x1 = sw - 380
+                        img = ImageGrab.grab(bbox=(x1, 0, sw, 160))
+                        text = pytesseract.image_to_string(img, config="--psm 6").strip()
+
+                        if text and text not in seen_texts:
+                            seen_texts.add(text)
+                            if len(seen_texts) > 20: seen_texts.pop()
+                            if any(kw in text.lower() for kw in
+                                   ["dofus","jouer","play","trade","échange",
+                                    "groupe","group","message","défi","challenge",
+                                    "craft","pvp","percepteur"]):
+                                print(f"[Mac OCR] {text[:80]}")
+                                _dispatch_notif(text, callback)
+
+                except Exception:
+                    pass
+                time.sleep(0.2)
+        except Exception as e:
+            print(f"[Mac OCR] Non disponible: {e}")
+
+    threading.Thread(target=_start_ocr_watcher, daemon=True).start()
 
 
 def _dispatch_notif(text: str, callback: Callable):
