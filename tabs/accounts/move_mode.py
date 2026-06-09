@@ -1,3 +1,4 @@
+import sys as _move_sys
 """move_mode.py - Mode deplacement : clic gauche sur Dofus = personnage suivant."""
 from __future__ import annotations
 import ctypes
@@ -5,6 +6,10 @@ import ctypes.wintypes as wt
 import threading
 import time
 from typing import Callable
+import re as _mre
+_PTN_SESSION = _mre.compile(r'^(.+?)\s*[-\u2013]\s*Dofus', _mre.IGNORECASE)
+_PTN_LOADING = _mre.compile(r'^Dofus\s*Retro\b', _mre.IGNORECASE)
+
 
 WH_MOUSE_LL    = 14
 WM_LBUTTONDOWN = 0x0201
@@ -22,6 +27,9 @@ class MouseHookData(ctypes.Structure):
 
 
 class SwitchModeCtrl:
+    """Mode déplacement — Windows uniquement (hook souris ctypes)."""
+    _SUPPORTED = _move_sys.platform == "win32"
+
     """
     Mode deplacement : hook souris bas niveau (WH_MOUSE_LL).
     A chaque clic gauche sur une fenetre Dofus, appelle cycle_fn
@@ -53,8 +61,9 @@ class SwitchModeCtrl:
         return self._active
 
     def _is_game_hwnd(self, hwnd: int) -> bool:
+        import sys
+        if sys.platform != 'win32': return False
         try:
-            from tabs.accounts.window_manager import _PTN_SESSION, _PTN_LOADING
             title_buf = ctypes.create_unicode_buffer(256)
             ctypes.windll.user32.GetWindowTextW(hwnd, title_buf, 256)
             title = title_buf.value
@@ -63,6 +72,10 @@ class SwitchModeCtrl:
             return False
 
     def _monitor_loop(self):
+        import sys
+        if sys.platform != "win32":
+            return  # Mode déplacement non supporté sur macOS (hook souris Windows uniquement)
+
         LowLevelMouseProc = ctypes.WINFUNCTYPE(
             ctypes.c_int, ctypes.c_int, wt.WPARAM,
             ctypes.POINTER(MouseHookData),

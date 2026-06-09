@@ -32,7 +32,7 @@ def _pid_alive(pid):
 
 def list_windows() -> list[GameWindow]:
     if not _OK:
-        return [GameWindow(1001,"Alpha"), GameWindow(1002,"Beta")]
+        return []
     result = []
     def _visit(hwnd, _):
         if not win32gui.IsWindowVisible(hwnd): return

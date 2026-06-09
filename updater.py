@@ -1,3 +1,13 @@
+import sys as _sys
+if _sys.platform == "darwin":
+    import ssl as _ssl
+    try:
+        import certifi as _certifi
+        _ssl._create_default_https_context = lambda: _ssl.create_default_context(
+            cafile=_certifi.where())
+    except ImportError:
+        _ssl._create_default_https_context = _ssl._create_unverified_context
+
 """updater.py - Mise a jour automatique."""
 
 import sys
@@ -8,7 +18,7 @@ import json
 import subprocess
 from pathlib import Path
 
-CURRENT_VERSION = "1.1.3"
+CURRENT_VERSION = "1.1.2"
 VERSION_URL     = "https://retro-toolbox.fr/version.json"
 
 # User-Agent navigateur pour eviter les blocages serveur
