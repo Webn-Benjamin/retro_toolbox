@@ -185,68 +185,120 @@ def register_hotkey(combo: str, fn: Callable) -> bool:
         return False
 
 
-# ─── Lecture base de données notifications macOS ─────────────────────
+# ─── Surveillance notifications macOS via bannière Quartz ────────────
 def _find_notif_db() -> str | None:
-    """Trouve la base de données des notifications macOS."""
+    """Trouve la DB notifications — essaie tous les chemins connus."""
+    import sqlite3
     patterns = [
         os.path.expanduser("~/Library/Application Support/NotificationCenter/*.db"),
+        os.path.expanduser("~/Library/Application Support/NotificationCenter/db2"),
+        os.path.expanduser("~/Library/Application Support/NotificationCenter/db"),
         "/private/var/folders/*/*/C/com.apple.notificationcenter/db2/db",
     ]
-    for pattern in patterns:
-        matches = glob.glob(pattern)
-        if matches:
-            return matches[0]
+    for p in patterns:
+        for match in glob.glob(p):
+            try:
+                conn = sqlite3.connect(f"file:{match}?mode=ro", uri=True)
+                cur  = conn.cursor()
+                cur.execute("SELECT name FROM sqlite_master WHERE type='table'")
+                tables = [r[0] for r in cur.fetchall()]
+                conn.close()
+                if tables:
+                    return match
+            except Exception:
+                pass
+    return None
+
+
+def _get_db_schema(db_path: str) -> tuple[str, str, str] | None:
+    """Retourne (table, id_col, data_col) selon le schéma détecté."""
+    import sqlite3
+    try:
+        conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+        cur  = conn.cursor()
+        cur.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        tables = {r[0] for r in cur.fetchall()}
+        conn.close()
+        if "record" in tables:
+            return ("record", "record_id", "data")
+        if "presented_notifications" in tables:
+            return ("presented_notifications", "rowid", "encoded_data")
+    except Exception:
+        pass
     return None
 
 
 def _read_last_notif_id(db_path: str) -> int:
-    """Lit le dernier ID de notification dans la DB."""
+    schema = _get_db_schema(db_path)
+    if not schema: return 0
+    table, id_col, _ = schema
     try:
         import sqlite3
         conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
         cur  = conn.cursor()
-        # Essayer différentes versions du schéma macOS
-        for query in [
-            "SELECT MAX(record_id) FROM record",
-            "SELECT MAX(rowid) FROM presented_notifications",
-        ]:
-            try:
-                cur.execute(query)
-                row = cur.fetchone()
-                conn.close()
-                return row[0] or 0
-            except Exception:
-                pass
-        conn.close()
+        cur.execute(f"SELECT MAX({id_col}) FROM {table}")
+        row = cur.fetchone(); conn.close()
+        return row[0] or 0
     except Exception:
-        pass
-    return 0
+        return 0
 
 
 def _read_new_notifs(db_path: str, since_id: int) -> list[dict]:
-    """Lit les nouvelles notifications depuis un ID donné."""
+    schema = _get_db_schema(db_path)
+    if not schema: return []
+    table, id_col, data_col = schema
     results = []
     try:
         import sqlite3
         conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
         cur  = conn.cursor()
-        for query in [
-            f"SELECT record_id, data FROM record WHERE record_id > {since_id}",
-            f"SELECT rowid, encoded_data FROM presented_notifications WHERE rowid > {since_id}",
-        ]:
-            try:
-                cur.execute(query)
-                rows = cur.fetchall()
-                if rows:
-                    for row in rows:
-                        results.append({"id": row[0], "raw": row[1]})
-                    break
-            except Exception:
-                pass
+        cur.execute(f"SELECT {id_col}, {data_col} FROM {table} WHERE {id_col} > ?",
+                    (since_id,))
+        for row in cur.fetchall():
+            results.append({"id": row[0], "raw": row[1]})
         conn.close()
     except Exception:
         pass
     return results
+
+
+# ─── Surveillance bannière notification via Quartz (fallback) ─────────
+def _watch_notif_banner(callback):
+    """
+    Détecte les bannières de notification Dofus via Quartz.
+    Fonctionne même sans accès à la DB.
+    """
+    seen: set[int] = set()
+    while True:
+        try:
+            for w in _quartz_wins():
+                owner = (w.get("kCGWindowOwnerName") or "").lower()
+                title = (w.get("kCGWindowName") or "").strip()
+                wid   = w.get("kCGWindowNumber", 0)
+                # Bannière notification = fenêtre du NotificationCenter
+                if "notificationcenter" not in owner and                    "notification center" not in owner: continue
+                if wid in seen or not title: continue
+                # Vérifier si c'est une notif Dofus
+                if "dofus" in title.lower() or any(
+                    kw in title.lower() for kw in
+                    ["jouer","trade","échange","combat","groupe","message","mp"]):
+                    seen.add(wid)
+                    wins = list_windows()
+                    pseudo = wins[0].pseudo if wins else ""
+                    if pseudo:
+                        try:
+                            from tabs.accounts.toast_reader import _categorize
+                            ntype, _ = _categorize(title)
+                            if ntype == "other": ntype = "combat"
+                        except Exception:
+                            ntype = "combat"
+                        callback(pseudo, ntype)
+            # Nettoyer les bannières disparues
+            current = {w.get("kCGWindowNumber",0) for w in _quartz_wins()}
+            seen &= current
+        except Exception:
+            pass
+        time.sleep(0.2)
 
 
 # ─── AlertWatcher — double mécanisme : notifications + polling titres ─
@@ -266,13 +318,15 @@ class AlertWatcher:
 
     def start(self):
         self._running = True
+        # Mécanisme 1 : DB notifications (si accessible)
         if self._db_path:
             self._last_id = _read_last_notif_id(self._db_path)
-            t = threading.Thread(target=self._notif_loop, daemon=True)
-            t.start()
-        # Toujours démarrer le polling des titres en parallèle
-        t2 = threading.Thread(target=self._title_loop, daemon=True)
-        t2.start()
+            threading.Thread(target=self._notif_loop, daemon=True).start()
+        # Mécanisme 2 : Bannières notification via Quartz
+        threading.Thread(
+            target=_watch_notif_banner, args=(self._cb,), daemon=True).start()
+        # Mécanisme 3 : Polling titres [!]
+        threading.Thread(target=self._title_loop, daemon=True).start()
 
     def stop(self):
         self._running = False
