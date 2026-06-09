@@ -330,35 +330,203 @@ class AlertWatcher:
         self._cb      = callback
         self._running = False
         self._seen_titles: set[int] = set()
-        self._db_path  = _find_notif_db()
-        self._last_id  = 0
 
     def start(self):
         self._running = True
-        # Mécanisme 1 : DB notifications (si accessible)
-        if self._db_path:
-            self._last_id = _read_last_notif_id(self._db_path)
-            threading.Thread(target=self._notif_loop, daemon=True).start()
-        # Mécanisme 2 : Bannières notification via Quartz
-        threading.Thread(
-            target=_watch_notif_banner, args=(self._cb,), daemon=True).start()
-        # Mécanisme 3 : Polling titres [!]
+        # Interception directe des notifications macOS (équivalent winsdk Windows)
+        _start_notification_listeners(self._cb)
+        # Polling titres [!] en parallèle
         threading.Thread(target=self._title_loop, daemon=True).start()
 
     def stop(self):
         self._running = False
 
-    # ── Boucle notifications DB ────────────────────────────────────
-    def _notif_loop(self):
+
+
+    def _process_notif(self, raw):
+        """Parse la notification et extrait pseudo + type (combat, echange, mp...)."""
+        if not raw: return
+        try:
+            from tabs.accounts.toast_reader import _categorize
+        except Exception:
+            _categorize = lambda t: ("combat", "⚔️")
+
+        text = ""
+        try:
+            import plistlib
+            data  = raw if isinstance(raw, bytes) else bytes(raw)
+            plist = plistlib.loads(data)
+            for key in ["body", "title", "subtitle", "req", "content"]:
+                val = plist.get(key, "")
+                if isinstance(val, str) and val:
+                    text += " " + val
+        except Exception:
+            pass
+
+        ntype, _ = _categorize(text.strip()) if text.strip() else ("combat", "⚔️")
+        if ntype == "other": ntype = "combat"
+
+        m      = _PTN_SESSION.search(text)
+        pseudo = m.group(1).strip() if m else ""
+        if not pseudo:
+            wins   = list_windows()
+            pseudo = wins[0].pseudo if wins else ""
+
+        if pseudo:
+            self._cb(pseudo, ntype)
+        elif not text.strip():
+            wins = list_windows()
+            if wins: self._cb(wins[0].pseudo, ntype)
+
+    # ── Boucle polling titres [!] ─────────────────────────────────
+    def _title_loop(self):
         while self._running:
             try:
-                notifs = _read_new_notifs(self._db_path, self._last_id)
-                for n in notifs:
-                    self._last_id = max(self._last_id, n["id"])
-                    self._process_notif(n["raw"])
+                self._check_titles()
             except Exception:
                 pass
-            time.sleep(0.3)
+            time.sleep(0.20)
+
+    def _check_titles(self):
+        alerted: set[int] = set()
+        for w in _quartz_wins():
+            title = (w.get("kCGWindowName") or "").strip()
+            wid   = w.get("kCGWindowNumber", 0)
+            if not _PTN_ALERT.match(title):
+                self._seen_titles.discard(wid); continue
+            alerted.add(wid)
+            if wid in self._seen_titles: continue
+            self._seen_titles.add(wid)
+            clean  = re.sub(r"^\[!\]\s*", "", title)
+            m      = _PTN_SESSION.match(clean)
+            pseudo = m.group(1).strip() if m else clean.strip()
+            if pseudo: self._cb(pseudo, "combat")
+        self._seen_titles &= alerted# ─── Interception notifications macOS via Darwin + NSDistributed ─────
+def _start_notification_listeners(callback: Callable):
+    """
+    Intercepte les notifications macOS de Dofus via deux mécanismes :
+    1. NSDistributedNotificationCenter (notifications inter-processus)
+    2. Darwin notify center (notifications système bas niveau)
+    Sans base de données, sans OCR — équivalent direct de winsdk Windows.
+    """
+    import threading
+
+    # ── Mécanisme 1 : NSDistributedNotificationCenter ─────────────
+    def _start_distributed():
+        try:
+            from Foundation import NSDistributedNotificationCenter, NSObject, NSRunLoop, NSDate
+            import objc
+
+            class _Observer(NSObject):
+                def handleNotif_(self, notif):
+                    try:
+                        name     = notif.name() or ""
+                        userInfo = notif.userInfo() or {}
+                        # Chercher contenu Dofus dans le nom ou userInfo
+                        text = name + " " + " ".join(
+                            str(v) for v in userInfo.values()
+                            if isinstance(v, str))
+                        _dispatch_notif(text, callback)
+                    except Exception:
+                        pass
+
+            obs    = _Observer.alloc().init()
+            center = NSDistributedNotificationCenter.defaultCenter()
+            # Observer TOUTES les notifications distribuées
+            center.addObserver_selector_name_object_(
+                obs,
+                objc.selector(obs.handleNotif_,
+                              signature=b"v@:@"),
+                None, None)
+            # Garder le runloop actif dans ce thread
+            loop = NSRunLoop.currentRunLoop()
+            while True:
+                loop.runUntilDate_(NSDate.dateWithTimeIntervalSinceNow_(0.2))
+        except Exception as e:
+            pass
+
+    # ── Mécanisme 2 : Darwin Notify Center (bas niveau) ───────────
+    def _start_darwin():
+        try:
+            import ctypes, ctypes.util
+            CF = ctypes.CDLL("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")
+
+            CALLBACK = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p,
+                                         ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)
+
+            def _darwin_cb(center, observer, name_ref, obj, info):
+                try:
+                    if not name_ref: return
+                    # Récupérer le nom de la notification
+                    name_str = ctypes.cast(name_ref, ctypes.c_char_p).value
+                    name = name_str.decode("utf-8", errors="ignore") if name_str else ""
+                    _dispatch_notif(name, callback)
+                except Exception:
+                    pass
+
+            cb = CALLBACK(_darwin_cb)
+
+            darwin_center = CF.CFNotificationCenterGetDarwinNotifyCenter()
+            CF.CFNotificationCenterAddObserver(
+                darwin_center, None, cb,
+                None,  # None = toutes les notifications
+                None,
+                0)     # CFNotificationSuspensionBehaviorDeliverImmediately
+
+            CF.CFRunLoopRun()
+        except Exception:
+            pass
+
+    for target in [_start_distributed, _start_darwin]:
+        t = threading.Thread(target=target, daemon=True)
+        t.start()
+
+
+def _dispatch_notif(text: str, callback: Callable):
+    """Analyse le texte d'une notification et déclenche le callback si c'est Dofus."""
+    _DOFUS_KW = ["dofus","jouer","turn to play","trade","échange","exchange",
+                 "groupe","group","message privé","private","défi","challenge",
+                 "craft","pvp","percepteur","atelier"]
+    text_low = text.lower()
+    if not any(kw in text_low for kw in _DOFUS_KW):
+        return
+    try:
+        from tabs.accounts.toast_reader import _categorize
+        ntype, _ = _categorize(text)
+        if ntype == "other": ntype = "combat"
+    except Exception:
+        ntype = "combat"
+    wins   = list_windows()
+    pseudo = wins[0].pseudo if wins else ""
+    if pseudo:
+        print(f"[Mac Notif] {ntype}: {pseudo} | {text[:60]}")
+        callback(pseudo, ntype)
+
+
+# ─── AlertWatcher — double mécanisme : notifications + polling titres ─
+class AlertWatcher:
+    """
+    Autofocus Mac via deux mécanismes combinés :
+    1. Surveillance base de données notifications macOS (équivalent Toast Windows)
+    2. Polling titres de fenêtres [!] toutes les 200ms (fallback)
+    """
+
+    def __init__(self, callback: Callable[[str, str], None]):
+        self._cb      = callback
+        self._running = False
+        self._seen_titles: set[int] = set()
+
+    def start(self):
+        self._running = True
+        # Interception directe des notifications macOS (équivalent winsdk Windows)
+        _start_notification_listeners(self._cb)
+        # Polling titres [!] en parallèle
+        threading.Thread(target=self._title_loop, daemon=True).start()
+
+    def stop(self):
+        self._running = False
+
+
 
     def _process_notif(self, raw):
         """Parse la notification et extrait pseudo + type (combat, echange, mp...)."""
