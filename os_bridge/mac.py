@@ -11,7 +11,7 @@ _PTN_ALERT   = re.compile(r"^\[!\]",                   re.IGNORECASE)
 
 @dataclass
 class GameWindow:
-    hwnd: int; name: str; loading: bool = False
+    hwnd: int; pseudo: str; loading: bool = False
 
 
 # ─── Quartz helpers ──────────────────────────────────────────────────
@@ -63,7 +63,7 @@ def list_windows() -> list[GameWindow]:
         else:
             name = f"Fenêtre {idx}"
         idx += 1
-        result.append(GameWindow(hwnd=wid, name=name))
+        result.append(GameWindow(hwnd=wid, pseudo=name))
     return result
 
 
@@ -83,7 +83,7 @@ def focus_window(wid: int) -> bool:
 
 def focus_by_name(name: str) -> bool:
     for w in list_windows():
-        if w.name.lower() == name.lower(): return focus_window(w.hwnd)
+        if w.pseudo.lower() == name.lower(): return focus_window(w.hwnd)
     return False
 
 

@@ -23,7 +23,7 @@ _title_reg: dict[int, str] = {}
 
 @dataclass
 class GameWindow:
-    hwnd: int; name: str; loading: bool = False
+    hwnd: int; pseudo: str; loading: bool = False
 
 def _pid_alive(pid):
     if not _PS: return True
@@ -43,9 +43,9 @@ def list_windows() -> list[GameWindow]:
         raw = win32gui.GetWindowText(hwnd)
         src = _title_reg.get(hwnd, raw)
         m = _PTN_SESSION.match(src)
-        if m: result.append(GameWindow(hwnd=hwnd, name=m.group(1).strip()))
+        if m: result.append(GameWindow(hwnd=hwnd, pseudo=m.group(1).strip()))
         elif _PTN_LOADING.match(raw):
-            result.append(GameWindow(hwnd=hwnd, name="Chargement…", loading=True))
+            result.append(GameWindow(hwnd=hwnd, pseudo="Chargement…", loading=True))
     win32gui.EnumWindows(_visit, None)
     return result
 
@@ -62,7 +62,7 @@ def focus_window(hwnd: int) -> bool:
 
 def focus_by_name(name: str) -> bool:
     for w in list_windows():
-        if w.name.lower() == name.lower(): return focus_window(w.hwnd)
+        if w.pseudo.lower() == name.lower(): return focus_window(w.hwnd)
     return False
 
 def foreground_hwnd() -> int | None:

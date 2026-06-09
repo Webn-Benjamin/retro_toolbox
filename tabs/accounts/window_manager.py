@@ -17,5 +17,5 @@ _PTN_LOADING = _re.compile(r"^Dofus\s*Retro\b",       _re.IGNORECASE)
 
 def get_display_name(hwnd: int) -> str | None:
     for w in collect_sessions():
-        if w.hwnd == hwnd: return w.name
+        if w.hwnd == hwnd: return w.pseudo
     return None
