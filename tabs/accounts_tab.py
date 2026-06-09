@@ -432,15 +432,7 @@ class AccountsTab(QWidget):
         remove = self._cfg.get("settings", {}).get("remove_notif_after_read", True)
         if _acc_sys.platform == "darwin":
             from os_bridge.mac import AlertWatcher as _MacWatcher
-            from tabs.accounts.toast_reader import AlertEvent as _AE
-            def _mac_cb(pseudo, ntype):
-                _emoji_map = {"combat":"⚔","group":"👥","trade":"🔄",
-                              "private":"💬","other":"🔔"}
-                ev = _AE(ntype=ntype,
-                         emoji=_emoji_map.get(ntype,"🔔"),
-                         pseudo=pseudo, body="")
-                self._on_notif(ev)
-            self._watcher = _MacWatcher(_mac_cb)
+            self._watcher = _MacWatcher(self._on_notif)
         else:
             self._watcher = make_watcher(self._on_notif, remove=remove)
         self._watcher.start()
