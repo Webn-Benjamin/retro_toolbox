@@ -65,8 +65,9 @@ def list_windows() -> list[GameWindow]:
         if wid in seen_ids: continue
         if "dofus" not in owner: continue
         if layer not in (0, -1): continue
-        if bounds.get("Width", 0) < 200: continue
-        if alpha < 0.1: continue
+        if bounds.get("Width", 0) < 500: continue
+        if bounds.get("Height", 0) < 400: continue
+        if alpha < 0.5: continue
 
         seen_ids.add(wid)
         title = (w.get("kCGWindowName") or "").strip()
@@ -459,17 +460,19 @@ def _start_notification_listeners(callback: Callable):
 
                     text = pytesseract.image_to_string(img, config="--psm 6").strip()
 
-                    if text and text != last_text and len(text) > 5:
+                    if text and text != last_text and len(text) > 3:
                         last_text = text
+                        print(f"[Mac OCR scan] {repr(text[:60])}")
                         tl = text.lower()
                         if any(kw in tl for kw in
                                ["dofus","jouer","play","trade","échange",
                                 "exchange","groupe","group","message","défi",
-                                "challenge","craft","pvp","percepteur","turn"]):
+                                "challenge","craft","pvp","percepteur","turn",
+                                "arc","pro","vous","your","st-"]):
                             if text not in seen_texts:
                                 seen_texts.add(text)
                                 if len(seen_texts) > 15: seen_texts.pop()
-                                print(f"[Mac OCR] {text[:80]}")
+                                print(f"[Mac OCR MATCH] {text[:80]}")
                                 _dispatch_notif(text, callback)
                 except Exception:
                     pass
