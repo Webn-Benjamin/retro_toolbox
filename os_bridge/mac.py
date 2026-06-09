@@ -445,41 +445,7 @@ def _start_notification_listeners(callback: Callable):
         except Exception as e:
             pass
 
-    # ── Mécanisme 2 : Darwin Notify Center (bas niveau) ───────────
-    def _start_darwin():
-        try:
-            import ctypes, ctypes.util
-            CF = ctypes.CDLL("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")
-
-            CALLBACK = ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_void_p,
-                                         ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p)
-
-            def _darwin_cb(center, observer, name_ref, obj, info):
-                try:
-                    if not name_ref: return
-                    # Récupérer le nom de la notification
-                    name_str = ctypes.cast(name_ref, ctypes.c_char_p).value
-                    name = name_str.decode("utf-8", errors="ignore") if name_str else ""
-                    _dispatch_notif(name, callback)
-                except Exception:
-                    pass
-
-            cb = CALLBACK(_darwin_cb)
-
-            darwin_center = CF.CFNotificationCenterGetDarwinNotifyCenter()
-            CF.CFNotificationCenterAddObserver(
-                darwin_center, None, cb,
-                None,  # None = toutes les notifications
-                None,
-                0)     # CFNotificationSuspensionBehaviorDeliverImmediately
-
-            CF.CFRunLoopRun()
-        except Exception:
-            pass
-
-    for target in [_start_distributed, _start_darwin]:
-        t = threading.Thread(target=target, daemon=True)
-        t.start()
+    threading.Thread(target=_start_distributed, daemon=True).start()
 
 
 def _dispatch_notif(text: str, callback: Callable):
