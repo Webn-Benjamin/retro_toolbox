@@ -411,41 +411,80 @@ def _start_notification_listeners(callback: Callable):
     """
     import threading
 
-    # ── Mécanisme 1 : NSDistributedNotificationCenter ─────────────
-    def _start_distributed():
+    # Accessibilité : lire le texte des bannières de notification
+    def _start_ax_watcher():
         try:
-            from Foundation import NSDistributedNotificationCenter, NSObject, NSRunLoop, NSDate
-            import objc
+            from ApplicationServices import (
+                AXUIElementCreateApplication,
+                AXUIElementCopyAttributeValue,
+                AXValueGetValue, kAXChildrenAttribute,
+                kAXTitleAttribute, kAXValueAttribute,
+                kAXDescriptionAttribute, kAXRoleAttribute,
+                kAXWindowsAttribute
+            )
+            import subprocess, time
 
-            class _Observer(NSObject):
-                def handleNotif_(self, notif):
-                    try:
-                        name     = notif.name() or ""
-                        userInfo = notif.userInfo() or {}
-                        # Chercher contenu Dofus dans le nom ou userInfo
-                        text = name + " " + " ".join(
-                            str(v) for v in userInfo.values()
-                            if isinstance(v, str))
-                        _dispatch_notif(text, callback)
-                    except Exception:
-                        pass
+            seen_texts: set[str] = set()
 
-            obs    = _Observer.alloc().init()
-            center = NSDistributedNotificationCenter.defaultCenter()
-            # Observer TOUTES les notifications distribuées
-            center.addObserver_selector_name_object_(
-                obs,
-                objc.selector(obs.handleNotif_,
-                              signature=b"v@:@"),
-                None, None)
-            # Garder le runloop actif dans ce thread
-            loop = NSRunLoop.currentRunLoop()
             while True:
-                loop.runUntilDate_(NSDate.dateWithTimeIntervalSinceNow_(0.2))
-        except Exception as e:
+                try:
+                    # Trouver le PID du NotificationCenter
+                    result = subprocess.run(
+                        ["pgrep", "-x", "NotificationCenter"],
+                        capture_output=True, text=True)
+                    pid_str = result.stdout.strip()
+                    if not pid_str:
+                        time.sleep(1); continue
+
+                    pid = int(pid_str.split()[0])
+                    app = AXUIElementCreateApplication(pid)
+
+                    # Lire toutes les fenêtres
+                    err, windows = AXUIElementCopyAttributeValue(
+                        app, kAXWindowsAttribute, None)
+                    if err != 0 or not windows:
+                        time.sleep(0.3); continue
+
+                    for win in windows:
+                        # Extraire tout le texte de la fenêtre
+                        texts = []
+                        for attr in [kAXTitleAttribute, kAXValueAttribute,
+                                     kAXDescriptionAttribute]:
+                            err2, val = AXUIElementCopyAttributeValue(win, attr, None)
+                            if err2 == 0 and val:
+                                texts.append(str(val))
+
+                        # Lire les enfants récursivement
+                        def read_children(el, depth=0):
+                            if depth > 4: return
+                            err3, children = AXUIElementCopyAttributeValue(
+                                el, kAXChildrenAttribute, None)
+                            if err3 != 0 or not children: return
+                            for child in children:
+                                for attr in [kAXTitleAttribute, kAXValueAttribute,
+                                             kAXDescriptionAttribute]:
+                                    err4, val = AXUIElementCopyAttributeValue(
+                                        child, attr, None)
+                                    if err4 == 0 and val and str(val).strip():
+                                        texts.append(str(val))
+                                read_children(child, depth+1)
+
+                        read_children(win)
+                        full_text = " ".join(texts)
+
+                        if full_text and full_text not in seen_texts:
+                            seen_texts.add(full_text)
+                            if len(seen_texts) > 50:
+                                seen_texts.pop()
+                            _dispatch_notif(full_text, callback)
+
+                except Exception:
+                    pass
+                time.sleep(0.2)
+        except Exception:
             pass
 
-    threading.Thread(target=_start_distributed, daemon=True).start()
+    threading.Thread(target=_start_ax_watcher, daemon=True).start()
 
 
 def _dispatch_notif(text: str, callback: Callable):
