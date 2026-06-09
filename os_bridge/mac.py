@@ -151,27 +151,65 @@ def simulate_ctrl_shift(key: str):
 
 
 def register_hotkey(combo: str, fn: Callable) -> bool:
+    """Raccourcis globaux Mac via CGEventTap (sans pynput)."""
     try:
-        from pynput import keyboard as _kb
-        parts   = combo.lower().replace("ctrl", "control").split("+")
-        mod_map = {"control": _kb.Key.ctrl, "cmd": _kb.Key.cmd,
-                   "alt": _kb.Key.alt, "shift": _kb.Key.shift}
-        mods: set = set(); key = None
+        import Quartz
+        import threading
+
+        parts   = combo.lower().replace("ctrl","control").split("+")
+        mod_map = {
+            "control": Quartz.kCGEventFlagMaskControl,
+            "cmd":     Quartz.kCGEventFlagMaskCommand,
+            "alt":     Quartz.kCGEventFlagMaskAlternate,
+            "shift":   Quartz.kCGEventFlagMaskShift,
+        }
+        key_map = {
+            "tab":"\t","space":" ","return":"\r","escape":"\x1b",
+            "f1":122,"f2":120,"f3":99,"f4":118,"f5":96,"f6":97,
+        }
+        mods_mask = 0
+        char_key  = None
         for p in parts:
-            if p in mod_map: mods.add(mod_map[p])
-            else:
-                try:    key = _kb.KeyCode.from_char(p)
-                except: key = getattr(_kb.Key, p, None)
-        if key is None: return False
-        pressed: set = set()
-        def on_press(k):
-            pressed.add(k)
-            if mods <= pressed and key in pressed: fn()
-        def on_release(k): pressed.discard(k)
-        lst = _kb.Listener(on_press=on_press, on_release=on_release)
-        lst.daemon = True; lst.start()
+            if p in mod_map: mods_mask |= mod_map[p]
+            else: char_key = p
+
+        if char_key is None: return False
+
+        def _callback(proxy, etype, event, refcon):
+            try:
+                flags = Quartz.CGEventGetFlags(event)
+                ch    = Quartz.CGEventGetIntegerValueField(
+                    event, Quartz.kCGKeyboardEventKeycode)
+                # Vérifier les modificateurs
+                if (flags & mods_mask) == mods_mask:
+                    # Vérifier la touche
+                    ev_char = Quartz.CGEventKeyboardGetUnicodeString(event, 1, None, None)
+                    if ev_char and ev_char[0].lower() == char_key:
+                        fn()
+            except Exception: pass
+            return event
+
+        _CB = Quartz.CGEventTapCallBack(_callback)
+        tap = Quartz.CGEventTapCreate(
+            Quartz.kCGSessionEventTap,
+            Quartz.kCGHeadInsertEventTap,
+            Quartz.kCGEventTapOptionDefault,
+            Quartz.CGEventMaskBit(Quartz.kCGEventKeyDown),
+            _CB, None)
+
+        if not tap: return False
+
+        src  = Quartz.CFMachPortCreateRunLoopSource(None, tap, 0)
+        loop = Quartz.CFRunLoopGetCurrent()
+        Quartz.CFRunLoopAddSource(loop, src, Quartz.kCFRunLoopCommonModes)
+        Quartz.CGEventTapEnable(tap, True)
+
+        def _run(): Quartz.CFRunLoopRun()
+        t = threading.Thread(target=_run, daemon=True); t.start()
         return True
-    except Exception: return False
+    except Exception as e:
+        print(f"[Mac] Raccourci {combo} non disponible: {e}")
+        return False
 
 
 # ─── Lecture base de données notifications macOS ─────────────────────

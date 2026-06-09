@@ -14,11 +14,8 @@ if _sys.platform == "win32":
 else:
     KEYBOARD_OK = False
 
-try:
-    from pynput import keyboard as _pynput_kb
-    PYNPUT_OK = True
-except ImportError:
-    PYNPUT_OK = False
+PYNPUT_OK = False
+_pynput_kb = None
 
 
 class InputRelay:
@@ -40,14 +37,9 @@ class InputRelay:
                 keyboard.press("ctrl"); keyboard.press("shift")
             else:
                 keyboard.release("shift"); keyboard.release("ctrl")
-        elif _sys.platform == "darwin" and PYNPUT_OK:
-            ctrl  = _pynput_kb.Key.ctrl
-            shift = _pynput_kb.Key.shift
-            kb    = _pynput_kb.Controller()
-            if self._on:
-                kb.press(ctrl); kb.press(shift)
-            else:
-                kb.release(shift); kb.release(ctrl)
+        # Ctrl+Shift Mac via osascript
+        elif _sys.platform == "darwin":
+            pass  # géré dans simulate_ctrl_shift
         return self._on
 
     def sync_keys(self):
