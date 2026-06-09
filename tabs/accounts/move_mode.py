@@ -1,6 +1,6 @@
-import sys as _move_sys
 """move_mode.py - Mode deplacement : clic gauche sur Dofus = personnage suivant."""
 from __future__ import annotations
+import sys as _move_sys
 import ctypes
 import ctypes.wintypes as wt
 import threading
