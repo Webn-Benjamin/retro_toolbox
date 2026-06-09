@@ -1,0 +1,7 @@
+PySide6
+pywin32
+keyboard
+psutil
+winsdk
+pillow
+pytesseract

@@ -24,6 +24,12 @@ def _pos_btn(text, active, callback):
     b.clicked.connect(callback)
     return b
 
+def _mk_lbl(txt, color=None, size="9pt"):
+    l = QLabel(txt)
+    ss = f"background:transparent;font-size:{size};"
+    if color: ss += f"color:{color};"
+    l.setStyleSheet(ss); return l
+
 
 class GroupCard(QFrame):
     kill_clicked  = Signal(str, str)
@@ -232,6 +238,50 @@ class TimerTab(QWidget):
         sl.addWidget(self._rare_lbl)
         sl.addStretch()
         lay.addWidget(stats)
+
+        # ── Alerte timer ── réglette de 5 en 5 minutes ───────────────
+        from PySide6.QtWidgets import QSlider as _SL
+        alert_frame = QFrame()
+        alert_frame.setStyleSheet(
+            f"QFrame{{background:{T.SURFACE};border:1px solid {T.BORDER};"
+            f"border-radius:8px;}}"
+            f"QLabel{{background:transparent;border:none;}}")
+        af = QHBoxLayout(alert_frame); af.setContentsMargins(10, 6, 10, 6); af.setSpacing(10)
+        af.addWidget(_mk_lbl("🔔", size="10pt"))
+        af.addWidget(_mk_lbl("Alerte timer", T.TEXT, "8pt"))
+
+        _alert_val = model.load_config().get("timer_alert_min", 5)
+        _alert_steps = [5, 10, 15, 20, 25, 30]
+        _alert_idx = min(range(len(_alert_steps)), key=lambda i: abs(_alert_steps[i]-_alert_val))
+
+        self._alert_sl = _SL(Qt.Orientation.Horizontal)
+        self._alert_sl.setRange(0, len(_alert_steps)-1)
+        self._alert_sl.setValue(_alert_idx)
+        self._alert_sl.setTickInterval(1)
+        self._alert_sl.setStyleSheet(
+            f"QSlider::groove:horizontal{{background:{T.BG_DARK};height:4px;border-radius:2px;}}"
+            f"QSlider::handle:horizontal{{background:white;border:2px solid {T.ORANGE};"
+            f"width:14px;height:14px;border-radius:7px;margin:-5px 0;}}"
+            f"QSlider::sub-page:horizontal{{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,"
+            f"stop:0 {T.GRAD1},stop:1 {T.GRAD2});border-radius:2px;}}")
+
+        self._alert_lbl = QLabel(f"{_alert_steps[_alert_idx]} min")
+        self._alert_lbl.setFixedWidth(46)
+        self._alert_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._alert_lbl.setStyleSheet(
+            f"font-size:9pt;font-weight:bold;color:{T.ORANGE};"
+            f"background:{T.BG_DARK};border-radius:6px;padding:2px 4px;")
+
+        def _on_alert(idx):
+            v = _alert_steps[idx]
+            self._alert_lbl.setText(f"{v} min")
+            cfg = model.load_config(); cfg["timer_alert_min"] = v; model.save_config(cfg)
+        self._alert_sl.valueChanged.connect(_on_alert)
+
+        af.addWidget(self._alert_sl, 1)
+        af.addWidget(self._alert_lbl)
+        af.addWidget(_mk_lbl("avant la fin", T.HINT, "7pt"))
+        lay.addWidget(alert_frame)
 
         # Barre maps
         map_bar_wrap = QHBoxLayout(); map_bar_wrap.setSpacing(3)
