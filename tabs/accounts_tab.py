@@ -12,6 +12,7 @@ from tabs.accounts.shortcuts_panel   import ShortcutsPanel
 from tabs.accounts.settings_panel    import ConfigPanel
 from tabs.accounts.hotkey_manager    import ShortcutTable
 from tabs.accounts.toast_reader      import make_watcher, AlertEvent
+import sys as _acc_sys
 from tabs.accounts.window_manager    import activate_window, is_game_focused
 from tabs.accounts.move_mode         import SwitchModeCtrl
 from tabs.accounts.notif_help        import AlertGuideDialog
@@ -429,7 +430,19 @@ class AccountsTab(QWidget):
 
     def _start_watcher(self):
         remove = self._cfg.get("settings", {}).get("remove_notif_after_read", True)
-        self._watcher = make_watcher(self._on_notif, remove=remove)
+        if _acc_sys.platform == "darwin":
+            from os_bridge.mac import AlertWatcher as _MacWatcher
+            from tabs.accounts.toast_reader import AlertEvent as _AE
+            def _mac_cb(pseudo, ntype):
+                _emoji_map = {"combat":"⚔","group":"👥","trade":"🔄",
+                              "private":"💬","other":"🔔"}
+                ev = _AE(ntype=ntype,
+                         emoji=_emoji_map.get(ntype,"🔔"),
+                         pseudo=pseudo, body="")
+                self._on_notif(ev)
+            self._watcher = _MacWatcher(_mac_cb)
+        else:
+            self._watcher = make_watcher(self._on_notif, remove=remove)
         self._watcher.start()
 
     def _on_notif(self, notif: AlertEvent):
