@@ -19,7 +19,7 @@ def _quartz_wins() -> list[dict]:
     try:
         import Quartz
         wins = Quartz.CGWindowListCopyWindowInfo(
-            Quartz.kCGWindowListOptionOnScreenOnly |
+            Quartz.kCGWindowListOptionAll |
             Quartz.kCGWindowListExcludeDesktopElements,
             Quartz.kCGNullWindowID)
         return list(wins) if wins else []
@@ -31,7 +31,7 @@ def has_screen_permission() -> bool:
     try:
         import Quartz
         wins = Quartz.CGWindowListCopyWindowInfo(
-            Quartz.kCGWindowListOptionOnScreenOnly, Quartz.kCGNullWindowID)
+            Quartz.kCGWindowListOptionAll, Quartz.kCGNullWindowID)
         if wins:
             for w in wins:
                 if w.get("kCGWindowName") is not None:
@@ -50,8 +50,12 @@ def list_windows() -> list[GameWindow]:
         owner = (w.get("kCGWindowOwnerName") or "").lower()
         wid   = w.get("kCGWindowNumber", 0)
         layer = w.get("kCGWindowLayer", 0)
-        if layer != 0 or wid in seen_ids: continue
+        # layer 0 = normal, layer -1 = minimisé
+        if layer not in (0, -1) or wid in seen_ids: continue
         if "dofus" not in owner: continue
+        # Ignorer les fenêtres sans taille (sous-éléments)
+        bounds = w.get("kCGWindowBounds", {})
+        if bounds.get("Width", 0) < 100: continue
         seen_ids.add(wid)
         title = (w.get("kCGWindowName") or "").strip()
         clean = re.sub(r"^\[!\]\s*", "", title)
@@ -71,13 +75,25 @@ def focus_window(wid: int) -> bool:
     for w in _quartz_wins():
         if w.get("kCGWindowNumber") == wid:
             pname = w.get("kCGWindowOwnerName", "")
-            if pname:
-                try:
-                    subprocess.run(["osascript", "-e",
-                        f'tell application "{pname}" to activate'],
-                        capture_output=True, timeout=2)
-                    return True
-                except Exception: pass
+            if not pname: continue
+            try:
+                # Désminimiser si besoin + mettre au premier plan
+                script = f'''
+tell application "{pname}"
+    activate
+    try
+        set miniaturized of window 1 to false
+    end try
+end tell
+tell application "System Events"
+    tell process "{pname}"
+        set frontmost to true
+    end tell
+end tell'''
+                subprocess.run(["osascript", "-e", script],
+                               capture_output=True, timeout=3)
+                return True
+            except Exception: pass
     return False
 
 
@@ -263,34 +279,39 @@ class AlertWatcher:
             time.sleep(0.3)
 
     def _process_notif(self, raw):
-        """Parse la notification binaire et extrait le pseudo."""
+        """Parse la notification et extrait pseudo + type (combat, echange, mp...)."""
         if not raw: return
         try:
-            # Décoder le plist binaire
+            from tabs.accounts.toast_reader import _categorize
+        except Exception:
+            _categorize = lambda t: ("combat", "⚔️")
+
+        text = ""
+        try:
             import plistlib
-            data = raw if isinstance(raw, bytes) else bytes(raw)
+            data  = raw if isinstance(raw, bytes) else bytes(raw)
             plist = plistlib.loads(data)
-            # Chercher le contenu dans les clés communes
-            text = ""
             for key in ["body", "title", "subtitle", "req", "content"]:
                 val = plist.get(key, "")
                 if isinstance(val, str) and val:
                     text += " " + val
-            if not text.strip(): return
-            # Chercher un pseudo dans le texte
-            m = _PTN_SESSION.search(text)
-            pseudo = m.group(1).strip() if m else ""
-            if not pseudo:
-                # Essayer d'extraire depuis les fenêtres actives
-                wins = list_windows()
-                if wins: pseudo = wins[0].name
-            if pseudo:
-                self._cb(pseudo, "combat")
         except Exception:
-            # Si le parsing échoue, utiliser la première fenêtre Dofus
+            pass
+
+        ntype, _ = _categorize(text.strip()) if text.strip() else ("combat", "⚔️")
+        if ntype == "other": ntype = "combat"
+
+        m      = _PTN_SESSION.search(text)
+        pseudo = m.group(1).strip() if m else ""
+        if not pseudo:
+            wins   = list_windows()
+            pseudo = wins[0].pseudo if wins else ""
+
+        if pseudo:
+            self._cb(pseudo, ntype)
+        elif not text.strip():
             wins = list_windows()
-            if wins:
-                self._cb(wins[0].name, "combat")
+            if wins: self._cb(wins[0].pseudo, ntype)
 
     # ── Boucle polling titres [!] ─────────────────────────────────
     def _title_loop(self):

@@ -1,12 +1,24 @@
 """hotkey_manager.py — Raccourcis clavier globaux et Ctrl+Shift simulé."""
 from __future__ import annotations
+import sys as _sys
 from typing import Callable
 
-try:
-    import keyboard
-    KEYBOARD_OK = True
-except ImportError:
+# Windows : keyboard (hook direct bas niveau)
+# macOS   : pynput via os_bridge
+if _sys.platform == "win32":
+    try:
+        import keyboard
+        KEYBOARD_OK = True
+    except ImportError:
+        KEYBOARD_OK = False
+else:
     KEYBOARD_OK = False
+
+try:
+    from pynput import keyboard as _pynput_kb
+    PYNPUT_OK = True
+except ImportError:
+    PYNPUT_OK = False
 
 
 class InputRelay:
@@ -14,6 +26,8 @@ class InputRelay:
 
     def __init__(self):
         self._on = False
+        self._ctrl  = None
+        self._shift = None
 
     @property
     def active(self) -> bool:
@@ -21,27 +35,34 @@ class InputRelay:
 
     def toggle(self, require_dofus_fg=None) -> bool:
         self._on = not self._on
-        if KEYBOARD_OK:
+        if _sys.platform == "win32" and KEYBOARD_OK:
             if self._on:
-                keyboard.press("ctrl")
-                keyboard.press("shift")
+                keyboard.press("ctrl"); keyboard.press("shift")
             else:
-                keyboard.release("shift")
-                keyboard.release("ctrl")
+                keyboard.release("shift"); keyboard.release("ctrl")
+        elif _sys.platform == "darwin" and PYNPUT_OK:
+            ctrl  = _pynput_kb.Key.ctrl
+            shift = _pynput_kb.Key.shift
+            kb    = _pynput_kb.Controller()
+            if self._on:
+                kb.press(ctrl); kb.press(shift)
+            else:
+                kb.release(shift); kb.release(ctrl)
         return self._on
 
     def sync_keys(self):
-        """Ré-appuie Ctrl+Shift après un changement de focus."""
-        if not self._on or not KEYBOARD_OK: return
-        keyboard.release("shift"); keyboard.release("ctrl")
-        keyboard.press("ctrl"); keyboard.press("shift")
+        if not self._on: return
+        if _sys.platform == "win32" and KEYBOARD_OK:
+            keyboard.release("shift"); keyboard.release("ctrl")
+            keyboard.press("ctrl"); keyboard.press("shift")
 
     def clear_keys(self):
-        if self._on and KEYBOARD_OK:
-            try:
-                keyboard.release("shift")
-                keyboard.release("ctrl")
-            except Exception: pass
+        if self._on:
+            if _sys.platform == "win32" and KEYBOARD_OK:
+                try:
+                    keyboard.release("shift")
+                    keyboard.release("ctrl")
+                except Exception: pass
         self._on = False
 
 
@@ -53,9 +74,22 @@ class ShortcutTable:
         self.ctrl_shift = InputRelay()
 
     def add(self, name: str, combo: str, fn: Callable) -> bool:
-        if not KEYBOARD_OK or not combo.strip(): return False
+        if not combo.strip(): return False
         self.remove(name)
-        if not self._is_valid(combo): return False
+
+        if _sys.platform == "darwin":
+            try:
+                from os_bridge.bridge import register_hotkey
+                ok = register_hotkey(combo, fn)
+                if ok:
+                    self._registered[name] = (combo, None)
+                return ok
+            except Exception as e:
+                print(f"[ShortcutTable Mac] {name}={combo}: {e}")
+                return False
+
+        if not KEYBOARD_OK: return False
+        if not self._is_valid_win(combo): return False
         try:
             hook = keyboard.add_hotkey(combo, fn, suppress=False)
             self._registered[name] = (combo, hook)
@@ -67,50 +101,41 @@ class ShortcutTable:
     def remove(self, name: str):
         if name in self._registered:
             _, hook = self._registered.pop(name)
-            try: keyboard.remove_hotkey(hook)
-            except: pass
+            if hook and KEYBOARD_OK:
+                try: keyboard.remove_hotkey(hook)
+                except: pass
 
     def clear(self):
-        if not KEYBOARD_OK: return
         for name in list(self._registered):
             self.remove(name)
         self.ctrl_shift.clear_keys()
 
-    def _is_valid(self, combo: str) -> bool:
+    def _is_valid_win(self, combo: str) -> bool:
         try: keyboard.parse_hotkey(combo); return True
         except: return False
 
     def is_valid(self, combo: str) -> bool:
-        return self._is_valid(combo) if KEYBOARD_OK and combo.strip() else False
+        if not combo.strip(): return False
+        if _sys.platform == "darwin":
+            # Valider format pynput : ex "ctrl+tab", "ctrl+shift+a"
+            parts = combo.lower().replace("ctrl","control").split("+")
+            known_mods = {"control","cmd","alt","shift"}
+            has_mod = any(p in known_mods for p in parts)
+            has_key = any(p not in known_mods for p in parts)
+            return has_mod and has_key
+        return self._is_valid_win(combo) if KEYBOARD_OK else False
 
 
 class CycleEngine:
-    """
-    Mode Farm Sadi — ignore les notifications de combat pendant N tours
-    pour les personnages Sadida désignés.
-
-    Usage :
-        mgr = CycleEngine(turns=3)
-        mgr.set_sadis({"St-Sadi", "St-Sadi2"})
-
-        # Appuie raccourci → déclenche le compteur
-        mgr.trigger("St-Sadi")
-
-        # Avant chaque autofocus combat :
-        skip, left = mgr.check("St-Sadi")
-        if skip: return  # ignorer ce tour
-    """
+    """Mode Farm Sadi — ignore N tours de combat pour les Sadidas désignés."""
 
     def __init__(self, turns: int = 3):
-        self._turns:   int            = max(1, int(turns))
-        self._sadis:   set[str]       = set()
-        self._counts:  dict[str, int] = {}
-
-    # ── Config ─────────────────────────────────────────────
+        self._turns:  int            = max(1, int(turns))
+        self._sadis:  set[str]       = set()
+        self._counts: dict[str, int] = {}
 
     @property
     def turns(self) -> int: return self._turns
-
     @turns.setter
     def turns(self, v: int): self._turns = max(1, int(v))
 
@@ -120,43 +145,26 @@ class CycleEngine:
     def set_sadis(self, pseudos: set[str]):
         self._sadis = set(pseudos)
         for p in list(self._counts):
-            if p not in self._sadis:
-                del self._counts[p]
+            if p not in self._sadis: del self._counts[p]
 
     def is_sadi(self, pseudo: str) -> bool:
         return pseudo in self._sadis
 
-    # ── Contrôle ───────────────────────────────────────────
-
     def trigger(self, pseudo: str):
-        """Démarre ou remet à zéro le compteur pour ce Sadida."""
         if pseudo in self._sadis:
             self._counts[pseudo] = self._turns
 
     def check(self, pseudo: str) -> tuple[bool, int]:
-        """
-        Appelé avant chaque autofocus combat.
-        Retourne (skip, tours_restants).
-        Décrémente le compteur à chaque appel positif.
-        """
         left = self._counts.get(pseudo, 0)
-        if left <= 0:
-            return False, 0
+        if left <= 0: return False, 0
         new = left - 1
-        if new == 0:
-            del self._counts[pseudo]
-        else:
-            self._counts[pseudo] = new
+        if new == 0: del self._counts[pseudo]
+        else: self._counts[pseudo] = new
         return True, new
 
     def remaining(self, pseudo: str) -> int:
         return self._counts.get(pseudo, 0)
 
-    def cancel(self, pseudo: str):
-        self._counts.pop(pseudo, None)
-
-    def cancel_all(self):
-        self._counts.clear()
-
-    def is_active(self) -> bool:
-        return bool(self._counts)
+    def cancel(self, pseudo: str): self._counts.pop(pseudo, None)
+    def cancel_all(self): self._counts.clear()
+    def is_active(self) -> bool: return bool(self._counts)
