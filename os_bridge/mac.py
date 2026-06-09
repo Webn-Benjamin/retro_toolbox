@@ -46,19 +46,35 @@ def list_windows() -> list[GameWindow]:
     result = []
     seen_ids = set()
     idx = 1
-    for w in _quartz_wins():
-        owner = (w.get("kCGWindowOwnerName") or "").lower()
-        wid   = w.get("kCGWindowNumber", 0)
-        layer = w.get("kCGWindowLayer", 0)
-        if layer != 0 or wid in seen_ids: continue
+
+    try:
+        import Quartz as _Q
+        all_wins = _Q.CGWindowListCopyWindowInfo(
+            _Q.kCGWindowListOptionAll | _Q.kCGWindowListExcludeDesktopElements,
+            _Q.kCGNullWindowID) or []
+    except Exception:
+        all_wins = _quartz_wins()
+
+    for w in all_wins:
+        owner  = (w.get("kCGWindowOwnerName") or "").lower()
+        wid    = w.get("kCGWindowNumber", 0)
+        layer  = w.get("kCGWindowLayer", 0)
+        bounds = w.get("kCGWindowBounds", {})
+        alpha  = w.get("kCGWindowAlpha", 1.0)
+
+        if wid in seen_ids: continue
         if "dofus" not in owner: continue
+        if layer not in (0, -1): continue
+        if bounds.get("Width", 0) < 200: continue
+        if alpha < 0.1: continue
+
         seen_ids.add(wid)
         title = (w.get("kCGWindowName") or "").strip()
         clean = re.sub(r"^\[!\]\s*", "", title)
         m     = _PTN_SESSION.match(clean)
         if m:
             name = m.group(1).strip()
-        elif title and len(title) > 2:
+        elif title and len(title) > 3:
             name = title
         else:
             name = f"Fenêtre {idx}"
@@ -414,7 +430,7 @@ def _start_notification_listeners(callback: Callable):
     def _start_ocr_watcher():
         try:
             import Quartz
-            from PIL import ImageGrab
+            from PIL import Image as _PILImage
             import pytesseract
 
             seen_texts: set[str] = set()
@@ -424,12 +440,24 @@ def _start_notification_listeners(callback: Callable):
                 try:
                     screen = Quartz.CGDisplayBounds(Quartz.CGMainDisplayID())
                     sw = int(screen.size.width)
-                    sh = int(screen.size.height)
-                    # Coin notification haut droite (adapté Retina et non-Retina)
-                    x1 = max(0, sw - 420)
-                    img = ImageGrab.grab(bbox=(x1, 0, sw, 180))
-                    text = pytesseract.image_to_string(
-                        img, config="--psm 6").strip()
+                    # Capture Quartz — capture les bannières système
+                    region = Quartz.CGRectMake(sw - 430, 0, 430, 200)
+                    cg_img = Quartz.CGWindowListCreateImage(
+                        region,
+                        Quartz.kCGWindowListOptionOnScreenOnly,
+                        Quartz.kCGNullWindowID,
+                        Quartz.kCGWindowImageDefault)
+                    if cg_img:
+                        w_px = Quartz.CGImageGetWidth(cg_img)
+                        h_px = Quartz.CGImageGetHeight(cg_img)
+                        prov = Quartz.CGImageGetDataProvider(cg_img)
+                        raw  = Quartz.CGDataProviderCopyData(prov)
+                        img  = _PILImage.frombytes("RGBA", (w_px, h_px), bytes(raw))
+                    else:
+                        from PIL import ImageGrab
+                        img = ImageGrab.grab(bbox=(sw-430, 0, sw, 200))
+
+                    text = pytesseract.image_to_string(img, config="--psm 6").strip()
 
                     if text and text != last_text and len(text) > 5:
                         last_text = text
@@ -453,10 +481,10 @@ def _start_notification_listeners(callback: Callable):
 
 
 def _dispatch_notif(text: str, callback: Callable):
-    """Analyse le texte d'une notification et déclenche le callback si c'est Dofus."""
+    """Analyse le texte et identifie quel perso a reçu la notification."""
     _DOFUS_KW = ["dofus","jouer","turn to play","trade","échange","exchange",
-                 "groupe","group","message privé","private","défi","challenge",
-                 "craft","pvp","percepteur","atelier"]
+                 "groupe","group","message","défi","challenge",
+                 "craft","pvp","percepteur","turn","play"]
     text_low = text.lower()
     if not any(kw in text_low for kw in _DOFUS_KW):
         return
@@ -466,11 +494,39 @@ def _dispatch_notif(text: str, callback: Callable):
         if ntype == "other": ntype = "combat"
     except Exception:
         ntype = "combat"
-    wins   = list_windows()
-    pseudo = wins[0].pseudo if wins else ""
-    if pseudo:
-        print(f"[Mac Notif] {ntype}: {pseudo} | {text[:60]}")
-        callback(pseudo, ntype)
+
+    wins = list_windows()
+    if not wins: return
+
+    # Chercher quel perso correspond à la notification
+    # La notification contient le pseudo : "St-Arc 's turn" ou "St-Arc propose..."
+    pseudo = ""
+
+    # 1. Essayer de matcher directement avec les pseudos connus
+    for win in wins:
+        if win.pseudo.lower() in text_low:
+            pseudo = win.pseudo
+            break
+
+    # 2. Essayer d'extraire depuis le titre de la notif (format "Pseudo - Dofus")
+    if not pseudo:
+        m = _PTN_SESSION.search(text)
+        if m:
+            found = m.group(1).strip()
+            # Vérifier si ce pseudo correspond à une fenêtre connue
+            for win in wins:
+                if win.pseudo.lower() == found.lower():
+                    pseudo = win.pseudo
+                    break
+            if not pseudo:
+                pseudo = found  # utiliser quand même
+
+    # 3. Fallback : première fenêtre
+    if not pseudo:
+        pseudo = wins[0].pseudo
+
+    print(f"[Mac Notif] {ntype}: {pseudo} | {text[:60]}")
+    callback(pseudo, ntype)
 
 
 # ─── AlertWatcher — double mécanisme : notifications + polling titres ─
