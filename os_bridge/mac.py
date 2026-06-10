@@ -284,9 +284,10 @@ class AlertWatcher:
                         if key in seen:
                             continue
                         seen.add(key)
+                        print(f"[Mac] NOTIF brute: {texts}")
                         ev = self._decode(texts)
                         if ev:
-                            print(f"[Mac] → {ev.ntype}: {ev.pseudo}")
+                            print(f"[Mac] → {ev.ntype}: {ev.pseudo} | BODY={repr(ev.body)}")
                             threading.Thread(target=self._cb, args=(ev,),
                                            daemon=True).start()
                 # Nettoyer : retirer les notifs disparues pour re-déclencher plus tard
