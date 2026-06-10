@@ -143,7 +143,7 @@ def register_hotkey(combo: str, fn: Callable) -> bool:
 
 # ─── Catégorisation — tous types comme Windows (FR + EN + ES) ────────
 _RULES = [
-    ("combat",  "⚔️",  [re.compile(r"de jouer|turn to play|toca jugar|your turn|'s turn", re.I)]),
+    ("combat",  "⚔️",  [re.compile(r"de jouer|turn to play|toca jugar|your turn|'s turn to play", re.I)]),
     ("echange", "🔄",  [re.compile(r"propose.+échange|offers?.+trade|veut échanger|wants to trade|échange|exchange|propone.+intercambio", re.I)]),
     ("groupe",  "👥",  [re.compile(r"invite.+rejoindre|invit.+groupe|invited.+join|invites you|invita.+unirte|rejoindre le groupe|join.+group", re.I)]),
     ("mp",      "💬",  [re.compile(r"vous murmure|whispers|murmure|message privé|private message|^de\s|^from\s|susurra|te dice", re.I)]),
