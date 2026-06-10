@@ -268,7 +268,8 @@ class AlertWatcher:
         app = AXUIElementCreateApplication(pid)
         print(f"[Mac] Surveillance NotificationCenter (PID {pid})")
 
-        seen: set[str] = set()
+        # active = notifications actuellement affichées (pour détecter apparition)
+        active: set[str] = set()
 
         while self._running:
             try:
@@ -281,23 +282,20 @@ class AlertWatcher:
                             continue
                         key = " ".join(texts)
                         current_keys.add(key)
-                        if key in seen:
+                        # Déclencher UNIQUEMENT à l'apparition (pas déjà active)
+                        if key in active:
                             continue
-                        seen.add(key)
                         print(f"[Mac] NOTIF brute: {texts}")
                         ev = self._decode(texts)
                         if ev:
                             print(f"[Mac] → {ev.ntype}: {ev.pseudo} | BODY={repr(ev.body)}")
                             threading.Thread(target=self._cb, args=(ev,),
                                            daemon=True).start()
-                # Nettoyer : retirer les notifs disparues pour re-déclencher plus tard
-                seen &= current_keys if current_keys else seen
-                if len(seen) > 50:
-                    seen.clear()
+                # Mettre à jour : les notifs disparues seront re-déclenchables
+                active = current_keys
             except Exception as e:
-                # PID peut changer si NotificationCenter redémarre
                 new_pid = _get_pid()
                 if new_pid and new_pid != pid:
                     pid = new_pid
                     app = AXUIElementCreateApplication(pid)
-            time.sleep(0.25)
+            time.sleep(0.20)
