@@ -141,15 +141,15 @@ def register_hotkey(combo: str, fn: Callable) -> bool:
         return False
 
 
-# ─── Catégorisation (même logique que Windows) ───────────────────────
+# ─── Catégorisation — tous types comme Windows (FR + EN + ES) ────────
 _RULES = [
-    ("combat",  "⚔️",  [re.compile(r"de jouer|turn to play|Le toca jugar", re.I)]),
-    ("echange", "🔄",  [re.compile(r"propose.+échange|offers.+trade", re.I)]),
-    ("groupe",  "👥",  [re.compile(r"invite.+rejoindre|invited.+join", re.I)]),
-    ("mp",      "💬",  [re.compile(r"^de |^from ", re.I)]),
-    ("defi",    "🏆",  [re.compile(r"te défie|challenges you", re.I)]),
-    ("craft",   "🔨",  [re.compile(r"talents|atelier|fabriqués|skills|workshop", re.I)]),
-    ("pvp",     "🛡️",  [re.compile(r"percepteur.+attaqué|perceptor.+attacked", re.I)]),
+    ("combat",  "⚔️",  [re.compile(r"de jouer|turn to play|toca jugar|your turn|'s turn", re.I)]),
+    ("echange", "🔄",  [re.compile(r"propose.+échange|offers?.+trade|veut échanger|wants to trade|échange|exchange|propone.+intercambio", re.I)]),
+    ("groupe",  "👥",  [re.compile(r"invite.+rejoindre|invit.+groupe|invited.+join|invites you|invita.+unirte|rejoindre le groupe|join.+group", re.I)]),
+    ("mp",      "💬",  [re.compile(r"vous murmure|whispers|murmure|message privé|private message|^de\s|^from\s|susurra|te dice", re.I)]),
+    ("defi",    "🏆",  [re.compile(r"te défie|vous défie|défie|challenges you|challenge|desafía|provoca", re.I)]),
+    ("craft",   "🔨",  [re.compile(r"talents|atelier|fabriqués|fabrication|skills|workshop|created|crafted|artesano|taller", re.I)]),
+    ("pvp",     "🛡️",  [re.compile(r"percepteur.+attaqué|votre percepteur|perceptor.+attacked|recaudador|collector.+attack|tax collector", re.I)]),
 ]
 
 def _categorize(body: str) -> tuple[str, str]:
@@ -170,9 +170,9 @@ class AlertEvent:
 class AlertWatcher:
     """
     Équivalent Mac de AlertWatcher Windows.
-    Utilise screencapture (natif macOS) + tesseract pour lire
-    les bannières de notification Dofus.
-    Interface identique à la version Windows.
+    Lit les notifications via l'API Accessibilité (AXUIElement) —
+    pas d'OCR, lit directement le texte. Équivalent direct de winsdk.
+    Nécessite la permission Accessibilité accordée à l'app/Terminal.
     """
 
     def __init__(self, callback: Callable):
@@ -183,106 +183,120 @@ class AlertWatcher:
 
     def start(self) -> bool:
         self._running = True
-        t = threading.Thread(target=self._loop, daemon=True, name="MacAlertWatcher")
-        t.start()
-        print("[Mac] AlertWatcher démarré")
+        threading.Thread(target=self._loop, daemon=True,
+                         name="MacAlertWatcher").start()
+        print("[Mac] AlertWatcher démarré (API Accessibilité)")
         return True
 
     def stop(self):
         self._running = False
 
-    def _get_screen_width(self) -> int:
-        try:
-            import Quartz
-            b = Quartz.CGDisplayBounds(Quartz.CGMainDisplayID())
-            return int(b.size.width)
-        except Exception:
-            return 1920
+    def _read_all(self, el) -> list[str]:
+        """Lit récursivement tout le texte d'un élément AX."""
+        from ApplicationServices import AXUIElementCopyAttributeValue
+        texts = []
+        for attr in ["AXTitle", "AXValue", "AXDescription"]:
+            err, val = AXUIElementCopyAttributeValue(el, attr, None)
+            if err == 0 and val and str(val).strip():
+                texts.append(str(val))
+        err, kids = AXUIElementCopyAttributeValue(el, "AXChildren", None)
+        if err == 0 and kids:
+            for k in kids:
+                texts += self._read_all(k)
+        return texts
 
-    def _capture_notif_area(self, sw: int) -> str | None:
-        """Capture le coin notification et retourne le texte OCR."""
-        tmp = "/tmp/rt_notif_cap.png"
-        x   = max(0, sw - 440)
-        try:
-            # screencapture -x = sans son, -R = région
-            r = subprocess.run(
-                ["screencapture", "-x", "-R", f"{x},0,440,200", tmp],
-                capture_output=True, timeout=2)
-            if not os.path.exists(tmp): return None
-            import pytesseract
-            from PIL import Image
-            img  = Image.open(tmp).convert("L")  # niveaux de gris
-            text = pytesseract.image_to_string(img, config="--psm 6").strip()
-            try: os.unlink(tmp)
-            except Exception: pass
-            return text if len(text) > 3 else None
-        except Exception as e:
-            print(f"[Mac] Capture erreur: {e}")
+    def _decode(self, texts: list[str]) -> AlertEvent | None:
+        """Parse les textes d'une notification → pseudo (le perso concerné) + type."""
+        # Ignorer l'entrée "Notification Center" générique
+        clean = [t for t in texts if t.strip() and t.strip() != "Notification Center"]
+        if not clean:
             return None
+        full = " ".join(clean)
 
-    def _decode(self, text: str) -> AlertEvent | None:
-        """
-        Parse le texte OCR pour extraire pseudo + type.
-        Format attendu :
-          ligne 1 : "Pseudo - Dofus Retro v1.x"
-          ligne 2 : "C'est à votre tour de jouer"
-        """
-        lines = [l.strip() for l in text.splitlines() if l.strip()]
-        if not lines: return None
-
+        # 1. Le pseudo du PERSO qui reçoit la notif = depuis "Pseudo - Dofus Retro"
         pseudo = ""
-        body   = ""
-
-        # Chercher le pseudo dans chaque ligne
-        for line in lines:
-            m = _PTN_SESSION.match(line)
+        for t in clean:
+            m = _PTN_SESSION.match(t.strip())
             if m:
                 pseudo = m.group(1).strip()
                 break
-
-        # Si pas trouvé via regex, chercher dans les fenêtres connues
+        # 2. Fallback : matcher avec une fenêtre Dofus connue
         if not pseudo:
-            text_low = text.lower()
+            full_low = full.lower()
             for win in list_windows():
-                if win.pseudo.lower() in text_low:
+                if win.pseudo.lower() in full_low:
                     pseudo = win.pseudo
                     break
+        if not pseudo:
+            return None
 
-        if not pseudo: return None
+        # Le corps = le message (dernière ligne, sans le titre "Pseudo - Dofus")
+        body_lines = [t for t in clean
+                      if not _PTN_SESSION.match(t.strip())
+                      and t.strip() != "Dofus Retro"]
+        body = " ".join(body_lines) if body_lines else full
 
-        # Corps = lignes qui ne sont pas le titre
-        body_lines = [l for l in lines if not _PTN_SESSION.match(l)
-                      and "Dofus" not in l and len(l) > 3]
-        body = " ".join(body_lines)
-
-        ntype, emoji = _categorize(body or text)
-        if ntype == "other": return None
-
+        ntype, emoji = _categorize(body)
+        if ntype == "other":
+            # Même si non catégorisé, déclencher en "combat" par défaut
+            # (mieux vaut switcher que rater)
+            ntype, emoji = "combat", "⚔️"
         return AlertEvent(ntype=ntype, emoji=emoji, pseudo=pseudo, body=body)
 
     def _loop(self):
-        sw        = self._get_screen_width()
-        last_text = ""
-        seen: set[str] = set()
+        try:
+            from ApplicationServices import (
+                AXUIElementCreateApplication, AXUIElementCopyAttributeValue,
+            )
+        except Exception as e:
+            print(f"[Mac] API Accessibilité indisponible: {e}")
+            return
 
-        print(f"[Mac] Surveillance notifications (largeur écran: {sw}px)")
+        # Trouver le PID du NotificationCenter
+        def _get_pid():
+            try:
+                out = subprocess.run(["pgrep", "-x", "NotificationCenter"],
+                    capture_output=True, text=True, timeout=2).stdout.strip()
+                return int(out.split("\n")[0]) if out else None
+            except Exception:
+                return None
+
+        pid = _get_pid()
+        if not pid:
+            print("[Mac] NotificationCenter introuvable")
+            return
+        app = AXUIElementCreateApplication(pid)
+        print(f"[Mac] Surveillance NotificationCenter (PID {pid})")
+
+        seen: set[str] = set()
 
         while self._running:
             try:
-                text = self._capture_notif_area(sw)
-                if text and text != last_text:
-                    print(f"[Mac] OCR: {repr(text[:80])}")
-                    last_text = text
-                    ev = self._decode(text)
-                    if ev and ev.pseudo not in seen:
-                        seen.add(ev.pseudo)
-                        if len(seen) > 20: seen.pop()
-                        print(f"[Mac] → {ev.ntype}: {ev.pseudo}")
-                        threading.Thread(
-                            target=self._cb, args=(ev,),
-                            daemon=True).start()
-                elif not text:
-                    last_text = ""  # reset quand zone vide
+                err, wins = AXUIElementCopyAttributeValue(app, "AXWindows", None)
+                current_keys: set[str] = set()
+                if err == 0 and wins:
+                    for w in wins:
+                        texts = self._read_all(w)
+                        if len(texts) < 2:  # juste "Notification Center"
+                            continue
+                        key = " ".join(texts)
+                        current_keys.add(key)
+                        if key in seen:
+                            continue
+                        seen.add(key)
+                        ev = self._decode(texts)
+                        if ev:
+                            print(f"[Mac] → {ev.ntype}: {ev.pseudo}")
+                            threading.Thread(target=self._cb, args=(ev,),
+                                           daemon=True).start()
+                # Nettoyer : retirer les notifs disparues pour re-déclencher plus tard
+                seen &= current_keys if current_keys else seen
+                if len(seen) > 50:
+                    seen.clear()
             except Exception as e:
-                print(f"[Mac] Boucle erreur: {e}")
-            time.sleep(0.35)
+                # PID peut changer si NotificationCenter redémarre
+                new_pid = _get_pid()
+                if new_pid and new_pid != pid:
+                    pid = new_pid
+                    app = AXUIElementCreateApplication(pid)
+            time.sleep(0.25)
