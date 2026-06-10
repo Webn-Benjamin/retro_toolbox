@@ -312,12 +312,14 @@ class AccountPanel(QWidget):
         # Maximiser les nouvelles fenêtres si option activée
         new_hwnds = {w.hwnd for w in kept} - old_hwnds
         if new_hwnds and self._cfg.get("settings", {}).get("maximize_on_launch", False):
-            try:
-                import win32gui, win32con
-                for hwnd in new_hwnds:
-                    try: win32gui.ShowWindow(hwnd, win32con.SW_MAXIMIZE)
-                    except: pass
-            except: pass
+            import sys as _msys
+            if _msys.platform == "win32":
+                try:
+                    import win32gui, win32con
+                    for hwnd in new_hwnds:
+                        try: win32gui.ShowWindow(hwnd, win32con.SW_MAXIMIZE)
+                        except: pass
+                except: pass
         self._windows = kept
         n = len(self._windows)
         self._status.setText(f"{n} fenêtre{'s' if n != 1 else ''}")
@@ -442,6 +444,23 @@ class AccountPanel(QWidget):
             self._status.setText("✅ Sauvegardé")
 
     def _do_reorder(self, hwnds):
+        import sys as _rsys
+        if _rsys.platform == "darwin":
+            # macOS : pas de barre des tâches, on remet juste les fenêtres
+            # au premier plan dans l'ordre choisi (z-order)
+            try:
+                from os_bridge.bridge import focus_window as _fw
+                import time
+                for hwnd in reversed(hwnds):
+                    _fw(hwnd)
+                    time.sleep(0.15)
+                from PySide6.QtCore import QTimer
+                QTimer.singleShot(0, lambda: self._status.setText("✅ Ordre appliqué"))
+            except Exception:
+                from PySide6.QtCore import QTimer
+                QTimer.singleShot(0, lambda: self._status.setText("✅ Sauvegardé"))
+            return
+
         import ctypes, time
         # 1. Dégrouper chaque fenêtre (AppUserModelId unique)
         try:

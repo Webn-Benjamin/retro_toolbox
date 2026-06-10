@@ -344,6 +344,9 @@ class AccountsTab(QWidget):
     def _apply_maximize_on_launch(self):
         if not self._sets.get("maximize_on_launch", False):
             return
+        import sys as _xsys
+        if _xsys.platform != "win32":
+            return
         try:
             from tabs.accounts.window_manager import collect_sessions
             import win32gui, win32con

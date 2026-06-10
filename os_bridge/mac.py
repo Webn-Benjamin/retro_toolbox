@@ -115,6 +115,8 @@ def simulate_ctrl_shift(key: str):
     except Exception: pass
 
 
+_hotkey_monitors = []  # garder les références vivantes (évite garbage collection)
+
 def register_hotkey(combo: str, fn: Callable) -> bool:
     try:
         from AppKit import NSEvent
@@ -123,19 +125,28 @@ def register_hotkey(combo: str, fn: Callable) -> bool:
         mods     = 0
         char_key = None
         for p in parts:
+            p = p.strip()
             if p in mod_map: mods |= mod_map[p]
-            else: char_key = p
-        if char_key is None: return False
+            elif p: char_key = p
+        if char_key is None:
+            print(f"[Mac] Raccourci {combo}: pas de touche")
+            return False
         NSKeyDownMask = 1 << 10
         def _handler(event):
             try:
                 chars = (event.charactersIgnoringModifiers() or "").lower()
                 flags = event.modifierFlags() & 0xFFFF0000
-                if chars == char_key and (flags & mods) == mods: fn()
+                if chars == char_key and (flags & mods) == mods:
+                    fn()
             except Exception: pass
         monitor = NSEvent.addGlobalMonitorForEventsMatchingMask_handler_(
             NSKeyDownMask, _handler)
-        return monitor is not None
+        if monitor is not None:
+            _hotkey_monitors.append(monitor)
+            print(f"[Mac] Raccourci enregistré: {combo}")
+            return True
+        print(f"[Mac] Raccourci {combo}: monitor None (permission Accessibilité ?)")
+        return False
     except Exception as e:
         print(f"[Mac] Raccourci {combo}: {e}")
         return False
