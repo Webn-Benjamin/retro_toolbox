@@ -27,8 +27,9 @@ from tabs.challenges_tab import ChallengesTab
 from tabs.runes_tab      import RunesTab
 from tabs.settings_tab   import SettingsTab
 from tabs.about_tab      import AboutTab
-from tabs.craft_tab     import CraftTab
-from tabs.session_tab   import SessionTab
+from tabs.craft_tab        import CraftTab
+from tabs.session_tab      import SessionTab
+from tabs.calculators_tab  import CalculatorsTab
 from tabs.todo_tab       import TodoTab
 from tabs.overlay_tab    import OverlayTab
 from tabs.dashboard_tab  import DashboardTab
@@ -426,6 +427,7 @@ class MainWindow(QMainWindow):
             CraftTab(),                       # 8
             AboutTab(),                       # 9
             SessionTab(),                     # 10
+            CalculatorsTab(),                 # 11
         ]
 
         # Stack — QStackedWidget expose uniquement le widget actif pour sizeHint
@@ -447,7 +449,7 @@ class MainWindow(QMainWindow):
         nb_lay.setSpacing(0)
 
         nav_items = [
-            ("👥", "Comptes"), ("👤", "Dashboard"), ("💎", "Runes"), ("📝", "Todo"),
+            ("👥", "Comptes"), ("👤", "Dashboard"), ("💎", "Runes"), ("📝", "Notes"),
         ]
         self._nav_btns = []
         for i, (icon, label) in enumerate(nav_items):
@@ -477,7 +479,7 @@ class MainWindow(QMainWindow):
         mm_lay = QVBoxLayout(self._more_menu)
         mm_lay.setContentsMargins(6, 6, 6, 6); mm_lay.setSpacing(4)
 
-        for idx, (icon, label) in [(4, ("⏱", "Timer")), (5, ("⚔", "Challenges")), (6, ("🎯", "Dots")), (7, ("⚙", "Paramètres")), (8, ("🔧", "Craft")), (9, ("📊", "Détails")), (10, ("⏱", "Session"))]:
+        for idx, (icon, label) in [(4, ("⏱", "Timer")), (5, ("⚔", "Challenges")), (6, ("🎯", "Dots")), (7, ("⚙", "Paramètres")), (9, ("📊", "Détails")), (10, ("⏱", "Session")), (11, ("🧮", "Calculateurs"))]:
             btn = QPushButton(f"{icon}  {label}")
             btn.setStyleSheet(
                 f"QPushButton{{background:transparent;color:{theme.TEXT};"
@@ -523,13 +525,20 @@ class MainWindow(QMainWindow):
         self.setFixedWidth(self.WIDTH)
         self.setMinimumHeight(0)
         self.setMaximumHeight(16777215)
-        # Propager updateGeometry depuis le tab actif jusqu'à la fenêtre
+        # Propager updateGeometry depuis le tab actif
         current = self._stack.currentWidget()
         if current:
             w = current
             while w:
                 w.updateGeometry()
                 w = w.parentWidget()
+            # Contraindre le stack à la hauteur exacte du widget actif
+            # pour éviter que le tab le plus grand impose sa taille aux autres
+            sh = current.sizeHint()
+            if sh.isValid() and sh.height() > 0:
+                self._stack.setMaximumHeight(sh.height())
+            else:
+                self._stack.setMaximumHeight(16777215)
         self.adjustSize()
 
     # ── Stats ─────────────────────────────────────────────
