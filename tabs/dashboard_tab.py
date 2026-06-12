@@ -878,3 +878,7 @@ class DashboardTab(QWidget):
 
     def sizeHint(self):
         return QSize(350, 516)  # scroll(480) + footer(36)
+
+    def showEvent(self, e):
+        super().showEvent(e)
+        self.setFixedHeight(516)

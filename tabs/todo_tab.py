@@ -406,7 +406,7 @@ class TodoTab(QWidget):
         name_col = T.GREEN if is_active else T.TEXT
         row.setStyleSheet(
             f"QFrame{{background:{bg};{border_l}border:1px solid {T.BORDER};"
-            f"border-radius:9px;cursor:pointer;}}"
+            f"border-radius:9px;}}"
             f"QFrame:hover{{border-color:{T.GREEN};}}"
             f"QFrame QLabel{{background:transparent;border:none;}}")
         row.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -735,20 +735,31 @@ class TodoTab(QWidget):
         QTimer.singleShot(0, self._do_propagate)
 
     def _do_propagate(self):
-        w = self
-        while w:
-            w.updateGeometry()
-            w = w.parentWidget()
-        root = self.window()
-        if not root: return
-        root.setMinimumHeight(0)
-        root.setMaximumHeight(16777215)
-        root.adjustSize()
+        def do():
+            w = self
+            while w:
+                w.updateGeometry()
+                w = w.parentWidget()
+            root = self.window()
+            if not root: return
+            root.setMinimumHeight(0)
+            root.setMaximumHeight(16777215)
+            root.adjustSize()
+        from PySide6.QtCore import QTimer
+        QTimer.singleShot(0, do)
 
     def sizeHint(self):
         if not hasattr(self, '_editor'):
             return QSize(330, 200)
-        editor_h = self._editor.sizeHint().height()
         lay = self.layout()
-        m = lay.contentsMargins()
-        return QSize(330, m.top() + 38 + lay.spacing() + editor_h + m.bottom())
+        if not lay: return QSize(330, 200)
+        h = lay.contentsMargins().top() + lay.contentsMargins().bottom()
+        for i in range(lay.count()):
+            item = lay.itemAt(i)
+            if not item: continue
+            w = item.widget()
+            if w and w.isVisible():
+                h += w.sizeHint().height() + lay.spacing()
+            elif item.layout():
+                h += item.layout().sizeHint().height() + lay.spacing()
+        return QSize(330, max(h, 100))

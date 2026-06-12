@@ -521,25 +521,18 @@ class MainWindow(QMainWindow):
         self.setUpdatesEnabled(True)
 
     def _adjust_height(self, idx: int = 0):
-        from PySide6.QtWidgets import QApplication
         self.setFixedWidth(self.WIDTH)
-        self.setMinimumHeight(0)
-        self.setMaximumHeight(16777215)
-        # Propager updateGeometry depuis le tab actif
-        current = self._stack.currentWidget()
-        if current:
-            w = current
-            while w:
-                w.updateGeometry()
-                w = w.parentWidget()
-            # Contraindre le stack à la hauteur exacte du widget actif
-            # pour éviter que le tab le plus grand impose sa taille aux autres
-            sh = current.sizeHint()
-            if sh.isValid() and sh.height() > 0:
-                self._stack.setMaximumHeight(sh.height())
-            else:
-                self._stack.setMaximumHeight(16777215)
-        self.adjustSize()
+        def do():
+            current = self._stack.currentWidget()
+            if current:
+                w = current
+                while w:
+                    w.updateGeometry()
+                    w = w.parentWidget()
+            self.setMinimumHeight(0)
+            self.setMaximumHeight(16777215)
+            self.adjustSize()
+        QTimer.singleShot(0, do)
 
     # ── Stats ─────────────────────────────────────────────
 

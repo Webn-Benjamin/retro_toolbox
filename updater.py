@@ -18,7 +18,7 @@ import json
 import subprocess
 from pathlib import Path
 
-CURRENT_VERSION = "1.1.3"
+CURRENT_VERSION = "1.1.4"
 VERSION_URL     = "https://retro-toolbox.fr/version.json"
 
 # User-Agent navigateur pour eviter les blocages serveur
@@ -98,18 +98,30 @@ def download_and_restart(url: str, version: str, on_progress=None):
 
     bat_path    = exe_dir / "_retro_update.bat"
     pid = os.getpid() if hasattr(os, "getpid") else None
+    exe_name = current_exe.name
     bat_content = (
         "@echo off\n"
-        # Tuer le process parent proprement
-        + (f"taskkill /F /PID {pid} >nul 2>&1\n" if pid else "")
+        "chcp 65001 >nul\n"
+        # Attendre que le process parent se ferme TOUT SEUL (pas de kill brutal).
+        # QTimer.singleShot ferme l'app proprement -> PyInstaller nettoie son _MEI.
+        + (f"echo Attente de la fermeture de Retro Toolbox...\n" )
+        + ":waitclose\n"
+        + (f"tasklist /FI \"PID eq {pid}\" 2>nul | find \"{pid}\" >nul\n" if pid else "")
+        + (f"if not errorlevel 1 (\n"
+           f"  timeout /t 1 /nobreak >nul\n"
+           f"  goto waitclose\n"
+           f")\n" if pid else "")
+        # Marge supplementaire pour laisser Windows liberer les fichiers du _MEI
         + "timeout /t 2 /nobreak >nul\n"
-        # Boucle retry jusqu'à ce que le fichier soit libéré
+        # Boucle retry sur le move jusqu'a ce que l'ancien exe soit libere
         + ":retry\n"
         + f"move /y \"{new_exe}\" \"{current_exe}\" >nul 2>&1\n"
         + "if errorlevel 1 (\n"
         + "  timeout /t 1 /nobreak >nul\n"
         + "  goto retry\n"
         + ")\n"
+        # Relancer depuis le bon dossier de travail
+        + f"cd /d \"{exe_dir}\"\n"
         + f"start \"\" \"{current_exe}\"\n"
         + "del \"%~f0\"\n"
     )
@@ -123,4 +135,4 @@ def download_and_restart(url: str, version: str, on_progress=None):
 
     from PySide6.QtWidgets import QApplication
     from PySide6.QtCore import QTimer
-    QTimer.singleShot(200, QApplication.instance().quit)
+    QTimer.singleShot(500, QApplication.instance().quit)
