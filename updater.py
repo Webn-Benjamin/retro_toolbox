@@ -18,7 +18,7 @@ import json
 import subprocess
 from pathlib import Path
 
-CURRENT_VERSION = "1.1.4"
+CURRENT_VERSION = "1.2.0"
 VERSION_URL     = "https://retro-toolbox.fr/version.json"
 
 # User-Agent navigateur pour eviter les blocages serveur
@@ -91,40 +91,78 @@ def download_and_restart(url: str, version: str, on_progress=None):
                     downloaded += len(chunk)
                     if on_progress and total:
                         on_progress(downloaded / total)
+        # Verifier l'integrite : le fichier doit etre complet et non vide
+        size = new_exe.stat().st_size
+        if size == 0 or (total and size != total):
+            raise IOError(
+                f"Telechargement incomplet ({size}/{total} octets). "
+                f"Reessaie ou telecharge depuis retro-toolbox.fr")
+        # Un exe valide fait plusieurs Mo : garde-fou contre une page d'erreur HTML
+        if size < 1_000_000:
+            raise IOError(
+                "Fichier telecharge invalide. "
+                "Telecharge la derniere version depuis retro-toolbox.fr")
     except Exception as e:
         if new_exe.exists():
-            new_exe.unlink()
+            try:
+                new_exe.unlink()
+            except Exception:
+                pass
         raise e
 
-    bat_path    = exe_dir / "_retro_update.bat"
-    pid = os.getpid() if hasattr(os, "getpid") else None
+    bat_path = exe_dir / "_retro_update.bat"
+    pid      = os.getpid()
     exe_name = current_exe.name
-    bat_content = (
-        "@echo off\n"
-        "chcp 65001 >nul\n"
-        # Attendre que le process parent se ferme TOUT SEUL (pas de kill brutal).
-        # QTimer.singleShot ferme l'app proprement -> PyInstaller nettoie son _MEI.
-        + (f"echo Attente de la fermeture de Retro Toolbox...\n" )
-        + ":waitclose\n"
-        + (f"tasklist /FI \"PID eq {pid}\" 2>nul | find \"{pid}\" >nul\n" if pid else "")
-        + (f"if not errorlevel 1 (\n"
-           f"  timeout /t 1 /nobreak >nul\n"
-           f"  goto waitclose\n"
-           f")\n" if pid else "")
-        # Marge supplementaire pour laisser Windows liberer les fichiers du _MEI
-        + "timeout /t 2 /nobreak >nul\n"
-        # Boucle retry sur le move jusqu'a ce que l'ancien exe soit libere
-        + ":retry\n"
-        + f"move /y \"{new_exe}\" \"{current_exe}\" >nul 2>&1\n"
-        + "if errorlevel 1 (\n"
-        + "  timeout /t 1 /nobreak >nul\n"
-        + "  goto retry\n"
-        + ")\n"
-        # Relancer depuis le bon dossier de travail
-        + f"cd /d \"{exe_dir}\"\n"
-        + f"start \"\" \"{current_exe}\"\n"
-        + "del \"%~f0\"\n"
-    )
+    # Prefixe du dossier temp _MEI de CE process (a surveiller pour le nettoyage)
+    mei_dir  = getattr(sys, "_MEIPASS", "")
+
+    lines = [
+        "@echo off",
+        "chcp 65001 >nul",
+        "echo Mise a jour de Retro Toolbox en cours...",
+        "echo Veuillez patienter, l'application va redemarrer automatiquement.",
+        "",
+        # 1) Attendre que le process parent se ferme completement
+        ":waitclose",
+        f'tasklist /FI "PID eq {pid}" 2>nul | find "{pid}" >nul',
+        "if not errorlevel 1 (",
+        "  timeout /t 1 /nobreak >nul",
+        "  goto waitclose",
+        ")",
+        "",
+        # 2) Attendre que le dossier _MEI de l'ancien process soit supprime par
+        #    PyInstaller (sinon la DLL Python du nouveau process entre en conflit).
+    ]
+    if mei_dir:
+        lines += [
+            ":waitmei",
+            f'if exist "{mei_dir}" (',
+            "  timeout /t 1 /nobreak >nul",
+            "  goto waitmei",
+            ")",
+            "",
+        ]
+    lines += [
+        # 3) Marge de securite supplementaire
+        "timeout /t 3 /nobreak >nul",
+        "",
+        # 4) Remplacer l'ancien exe par le nouveau (retry tant qu'il est verrouille)
+        ":retry",
+        f'move /y "{new_exe}" "{current_exe}" >nul 2>&1',
+        "if errorlevel 1 (",
+        "  timeout /t 1 /nobreak >nul",
+        "  goto retry",
+        ")",
+        "",
+        # 5) Petite pause avant relance pour laisser le FS se stabiliser
+        "timeout /t 1 /nobreak >nul",
+        # 6) Relancer depuis le bon dossier
+        f'cd /d "{exe_dir}"',
+        f'start "" "{current_exe}"',
+        # 7) Auto-suppression du .bat
+        'del "%~f0"',
+    ]
+    bat_content = "\r\n".join(lines) + "\r\n"
     bat_path.write_text(bat_content, encoding="utf-8")
 
     subprocess.Popen(
@@ -135,4 +173,4 @@ def download_and_restart(url: str, version: str, on_progress=None):
 
     from PySide6.QtWidgets import QApplication
     from PySide6.QtCore import QTimer
-    QTimer.singleShot(500, QApplication.instance().quit)
+    QTimer.singleShot(800, QApplication.instance().quit)

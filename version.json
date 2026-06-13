@@ -1,5 +1,5 @@
 {
-  "version": "1.1.4",
+  "version": "1.2.0",
   "url": "https://retro-toolbox.fr/retro_toolbox.exe",
-  "notes": "-Ajout de l'onglet Calculateurs (calculateur d'XP métier + calculateur Craft/HDV) -Notes : sauvegarde de plusieurs notes -Amélioration de Session : chrono donjon cumulatif, compteur de captures, récapitulatif (donjons/heure, temps moyen, captures/heure) -Corrections visuelles"
+  "notes": "-NOUVEAU : Prix HDV communautaires — partagez et consultez les prix de l'Hotel de Vente par serveur (Boune, Allisteria, Fallanster), par lot x1/x10/x100 -Historique des prix avec graphique (7/15/30 jours) et systeme de favoris -Recherche, filtres et tri des ressources -Securite communautaire : validation anti-troll, signalement, pseudos uniques, limites anti-spam -Onglet Prix HDV accessible directement depuis le menu principal -Corrections visuelles"
 }

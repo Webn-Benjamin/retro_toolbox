@@ -34,6 +34,7 @@ from tabs.todo_tab       import TodoTab
 from tabs.overlay_tab    import OverlayTab
 from tabs.dashboard_tab  import DashboardTab
 from tabs.accounts_tab   import AccountsTab
+from tabs.hdv_tab import HdvTab
 
 
 class NavButton(QPushButton):
@@ -428,6 +429,7 @@ class MainWindow(QMainWindow):
             AboutTab(),                       # 9
             SessionTab(),                     # 10
             CalculatorsTab(),                 # 11
+            HdvTab(),                         # 12 
         ]
 
         # Stack — QStackedWidget expose uniquement le widget actif pour sizeHint
@@ -448,15 +450,19 @@ class MainWindow(QMainWindow):
         nb_lay.setContentsMargins(0, 0, 0, 0)
         nb_lay.setSpacing(0)
 
+        # (icône, label, index dans self._tabs)
         nav_items = [
-            ("👥", "Comptes"), ("👤", "Dashboard"), ("💎", "Runes"), ("📝", "Notes"),
+            ("👥", "Comptes", 0), ("👤", "Dashboard", 1),
+            ("💰", "Prix HDV", 12), ("📝", "Notes", 3),
         ]
         self._nav_btns = []
-        for i, (icon, label) in enumerate(nav_items):
+        self._nav_index = []   # index de tab pour chaque bouton de la navbar
+        for icon, label, tab_idx in nav_items:
             btn = NavButton(icon, label)
-            btn.clicked.connect(lambda _, idx=i: self._switch_tab(idx))
+            btn.clicked.connect(lambda _, idx=tab_idx: self._switch_tab(idx))
             nb_lay.addWidget(btn)
             self._nav_btns.append(btn)
+            self._nav_index.append(tab_idx)
 
         # Bouton ⋯ pour les onglets secondaires
         self._more_btn = NavButton("⋯", "Plus")
@@ -479,7 +485,7 @@ class MainWindow(QMainWindow):
         mm_lay = QVBoxLayout(self._more_menu)
         mm_lay.setContentsMargins(6, 6, 6, 6); mm_lay.setSpacing(4)
 
-        for idx, (icon, label) in [(4, ("⏱", "Timer")), (5, ("⚔", "Challenges")), (6, ("🎯", "Dots")), (7, ("⚙", "Paramètres")), (9, ("📊", "Détails")), (10, ("⏱", "Session")), (11, ("🧮", "Calculateurs"))]:
+        for idx, (icon, label) in [(2, ("💎", "Runes")), (4, ("⏱", "Timer")), (5, ("⚔", "Challenges")), (6, ("🎯", "Dots")), (7, ("⚙", "Paramètres")), (9, ("📊", "Détails")), (10, ("⏱", "Session")), (11, ("🧮", "Calculateurs"))]:
             btn = QPushButton(f"{icon}  {label}")
             btn.setStyleSheet(
                 f"QPushButton{{background:transparent;color:{theme.TEXT};"
@@ -516,7 +522,11 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
         for i, btn in enumerate(self._nav_btns):
-            btn.setChecked(i == idx)
+            # bouton navbar normal : coché si son tab == idx ; bouton "Plus" : coché si tab secondaire
+            if i < len(self._nav_index):
+                btn.setChecked(self._nav_index[i] == idx)
+            else:
+                btn.setChecked(idx not in self._nav_index)
         self._adjust_height(idx)
         self.setUpdatesEnabled(True)
 
