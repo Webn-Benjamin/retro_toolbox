@@ -217,7 +217,184 @@ class MainWindow(QMainWindow):
     def closeEvent(self, e):
         pos = self.pos()
         model.save_config({"window_x": pos.x(), "window_y": pos.y()})
+        # Flush la sauvegarde différée du Session (timers farm/donjon/captures)
+        for tab in self._tabs:
+            if hasattr(tab, "_flush_save"):
+                tab._flush_save()
         super().closeEvent(e)
+
+    def _check_focus_assist(self):
+        """Avertit si le mode Ne pas déranger Windows risque de masquer
+        les notifications de jeu (tour, échange...) lues par l'app."""
+        try:
+            from os_bridge import focus_assist
+        except Exception:
+            return
+        if not focus_assist.is_dnd_active():
+            return
+        cfg = model.load_config()
+        if cfg.get("skip_dnd_warning", False):
+            return
+        self._show_dnd_warning()
+
+    def _show_dnd_warning(self):
+        from PySide6.QtWidgets import QDialog, QCheckBox
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Mode Ne pas déranger actif")
+        dlg.setFixedWidth(320)
+        dlg.setStyleSheet(
+            f"QDialog{{background:{theme.BG};color:{theme.TEXT};}}"
+            f"QLabel{{background:transparent;color:{theme.TEXT};}}"
+            f"QCheckBox{{background:transparent;color:{theme.SUBTEXT};font-size:8pt;}}"
+            f"QPushButton{{background:{theme.BG_DARK};color:{theme.SUBTEXT};"
+            f"border:1px solid {theme.BORDER};border-radius:6px;"
+            f"padding:6px 14px;font-size:9pt;font-weight:600;}}"
+            f"QPushButton:hover{{background:{theme.BORDER};color:{theme.TEXT};}}")
+
+        lay = QVBoxLayout(dlg)
+        lay.setContentsMargins(16, 14, 16, 14); lay.setSpacing(12)
+
+        title = QLabel("🔕  Notifications Windows désactivées")
+        title.setStyleSheet(
+            f"font-size:10pt;font-weight:700;color:{theme.TEXT};background:transparent;")
+        lay.addWidget(title)
+
+        msg = QLabel(
+            "Le mode « Ne pas déranger » ou l'Assistant de concentration "
+            "est actif sur Windows. Les alertes de tour, d'échange et "
+            "autres notifications de jeu risquent de ne pas s'afficher."
+        )
+        msg.setWordWrap(True)
+        msg.setStyleSheet(f"font-size:9pt;color:{theme.SUBTEXT};background:transparent;")
+        lay.addWidget(msg)
+
+        chk = QCheckBox("Ne plus afficher ce message")
+        lay.addWidget(chk)
+
+        btn_row = QHBoxLayout(); btn_row.setSpacing(8)
+        btn_later = QPushButton("Plus tard")
+        btn_later.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_later.clicked.connect(dlg.reject)
+
+        btn_open = QPushButton("⚙  Ouvrir les paramètres")
+        btn_open.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_open.setStyleSheet(
+            f"QPushButton{{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,"
+            f"stop:0 {theme.GRAD1},stop:1 {theme.GRAD2});"
+            f"color:white;border:none;border-radius:6px;"
+            f"padding:6px 14px;font-size:9pt;font-weight:700;}}")
+
+        def _open_settings():
+            from os_bridge import focus_assist
+            focus_assist.open_notification_settings()
+            dlg.accept()
+        btn_open.clicked.connect(_open_settings)
+
+        btn_row.addWidget(btn_later)
+        btn_row.addWidget(btn_open)
+        lay.addLayout(btn_row)
+
+        dlg.exec()
+
+        if chk.isChecked():
+            model.save_config({"skip_dnd_warning": True})
+
+    def enterEvent(self, event):
+        if self._compact_mode:
+            self._animate_titlebar(show=True)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        if self._compact_mode:
+            self._animate_titlebar(show=False)
+        super().leaveEvent(event)
+
+    def _animate_titlebar(self, show: bool):
+        from PySide6.QtCore import QPropertyAnimation, QEasingCurve, QParallelAnimationGroup
+        at = self._tabs[0]
+        n = max(1, len(at._chars._windows))
+        scroll_h = min(n * 30, 400)
+        base_h = 50 + scroll_h
+        full_h = 46 + base_h
+
+        if hasattr(self, "_tb_anim_group") and self._tb_anim_group.state().value == 2:
+            self._tb_anim_group.stop()
+
+        self.setMinimumHeight(0)
+        self.setMaximumHeight(16777215)
+
+        if show:
+            self._title_bar.show()
+            # Partir de minimumHeight=0 : la titlebar commence compressée
+            self._title_bar.setMinimumHeight(0)
+            self._title_bar.setMaximumHeight(0)
+            self._title_bar.setFixedHeight(46)
+
+        # Animer minimumHeight ET maximumHeight de la titlebar : 0→46 (pousse le contenu vers le bas)
+        tb_min = QPropertyAnimation(self._title_bar, b"minimumHeight")
+        tb_max = QPropertyAnimation(self._title_bar, b"maximumHeight")
+        for a, s, e in [
+            (tb_min, 0 if show else 46, 46 if show else 0),
+            (tb_max, 0 if show else 46, 46 if show else 0),
+        ]:
+            a.setDuration(200)
+            a.setEasingCurve(QEasingCurve.Type.OutCubic)
+            a.setStartValue(s)
+            a.setEndValue(e)
+
+        # Animer la hauteur de la fenêtre en même temps
+        win_min = QPropertyAnimation(self, b"minimumHeight")
+        win_max = QPropertyAnimation(self, b"maximumHeight")
+        for a in (win_min, win_max):
+            a.setDuration(200)
+            a.setEasingCurve(QEasingCurve.Type.OutCubic)
+            a.setStartValue(self.height())
+            a.setEndValue(full_h if show else base_h)
+
+        group = QParallelAnimationGroup()
+        for a in (tb_min, tb_max, win_min, win_max):
+            group.addAnimation(a)
+
+        def _on_done():
+            self.setMinimumHeight(0)
+            self.setMaximumHeight(16777215)
+            if not show:
+                self._title_bar.hide()
+                self._title_bar.setMinimumHeight(0)
+                self._title_bar.setMaximumHeight(16777215)
+                self.setFixedHeight(base_h)
+            else:
+                self._title_bar.setMinimumHeight(0)
+                self._title_bar.setMaximumHeight(16777215)
+                self._title_bar.setFixedHeight(46)
+                self.setFixedHeight(full_h)
+
+        group.finished.connect(_on_done)
+        self._tb_anim_group = group
+        group.start()
+
+    def _toggle_compact(self):
+        self._compact_mode = not self._compact_mode
+        c = self._compact_mode
+        self._btn_compact.setChecked(c)
+        self._btn_compact.setToolTip("Quitter le mode compact" if c else "Mode compact")
+
+        at = self._tabs[0]
+        # Navbar du bas
+        central_lay = self.centralWidget().layout()
+        for i in range(central_lay.count()):
+            w = central_lay.itemAt(i).widget()
+            if w and w.objectName() == "navbar":
+                w.setVisible(not c)
+
+        at.set_compact_mode(c)
+        if c:
+            self._title_bar.hide()
+            at2 = self._tabs[0]
+            n = max(1, len(at2._chars._windows))
+            self.setFixedHeight(50 + min(n * 30, 400))
+        else:
+            self._title_bar.show()
 
     def _show_update(self):
         from PySide6.QtWidgets import (
@@ -329,6 +506,10 @@ class MainWindow(QMainWindow):
         self._stats_timer.timeout.connect(self._refresh_stats)
         self._stats_timer.start(1000)
 
+        # Vérifier le mode Ne pas déranger / Assistant de concentration Windows
+        # (décalé pour ne pas retarder l'affichage de la fenêtre)
+        QTimer.singleShot(800, self._check_focus_assist)
+
     # ── Données ───────────────────────────────────────────
 
     def _resolve_data_file(self):
@@ -363,7 +544,8 @@ class MainWindow(QMainWindow):
         main_lay.setSpacing(0)
 
         # Titlebar
-        title_bar = QFrame()
+        self._title_bar = QFrame()
+        title_bar = self._title_bar
         title_bar.setFixedHeight(46)
         title_bar.setStyleSheet(
             f"QFrame{{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,"
@@ -401,6 +583,21 @@ class MainWindow(QMainWindow):
         btn_discord.clicked.connect(
             lambda: _wb.open("https://discord.com/invite/Md8RJXdtQZ"))
         tb_lay.addWidget(btn_discord)
+
+        self._compact_mode = False
+        self._btn_compact = QPushButton("⛶")
+        self._btn_compact.setFixedSize(28, 28)
+        self._btn_compact.setCheckable(True)
+        self._btn_compact.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_compact.setToolTip("Mode compact — affiche uniquement les fenêtres Dofus Rétro")
+        self._btn_compact.setStyleSheet(
+            "QPushButton{background:rgba(255,255,255,51);color:white;"
+            "border:1px solid rgba(255,255,255,89);border-radius:7px;"
+            "font-size:11pt;font-weight:700;padding:0;}"
+            "QPushButton:hover{background:rgba(255,255,255,76);}"
+            "QPushButton:checked{background:rgba(255,255,255,110);}")
+        self._btn_compact.clicked.connect(self._toggle_compact)
+        tb_lay.addWidget(self._btn_compact)
         main_lay.addWidget(title_bar)
 
         # Callbacks timer

@@ -33,6 +33,53 @@ def _ibtn(text, bg, fg, hov, h=22):
     return b
 
 
+# ── Icônes SVG pour le mode compact ────────────────────────────────────────
+_SVG_STAR_ON = (
+    '<svg viewBox="0 0 24 24" fill="#e07a1f" xmlns="http://www.w3.org/2000/svg">'
+    '<path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25'
+    'L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>'
+)
+_SVG_STAR_OFF = (
+    '<svg viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="1.8"'
+    ' xmlns="http://www.w3.org/2000/svg">'
+    '<path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25'
+    'L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>'
+)
+_SVG_CROSS = (
+    '<svg viewBox="0 0 24 24" fill="none" stroke="#e05555" stroke-width="2.2"'
+    ' stroke-linecap="round" xmlns="http://www.w3.org/2000/svg">'
+    '<line x1="5" y1="5" x2="19" y2="19"/>'
+    '<line x1="19" y1="5" x2="5" y2="19"/></svg>'
+)
+_SVG_EXCLUDE = (
+    '<svg viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="1.8"'
+    ' stroke-linecap="round" xmlns="http://www.w3.org/2000/svg">'
+    '<circle cx="12" cy="12" r="9"/>'
+    '<line x1="8" y1="12" x2="16" y2="12"/></svg>'
+)
+
+
+def _svg_btn(svg: str, bg: str, tooltip: str) -> QPushButton:
+    """Bouton carré avec icône SVG rendue via QPixmap."""
+    from PySide6.QtGui import QPixmap, QIcon
+    from PySide6.QtCore import QByteArray
+    b = QPushButton()
+    b.setFixedSize(28, 28)
+    b.setToolTip(tooltip)
+    b.setCursor(Qt.CursorShape.PointingHandCursor)
+    b.setStyleSheet(
+        f"QPushButton{{background:{bg};border:none;border-radius:6px;padding:0;}}"
+        f"QPushButton:hover{{background:rgba(255,255,255,30);}}")
+    px = QPixmap()
+    px.loadFromData(QByteArray(svg.encode()), "SVG")
+    px = px.scaled(18, 18,
+                   Qt.AspectRatioMode.KeepAspectRatio,
+                   Qt.TransformationMode.SmoothTransformation)
+    b.setIcon(QIcon(px))
+    b.setIconSize(px.size())
+    return b
+
+
 class _SlotRow(QFrame):
     """Ligne représentant un personnage dans la liste."""
 
@@ -61,81 +108,110 @@ class _SlotRow(QFrame):
             f"QFrame QLabel{{border:none;background:transparent;}}"
             f"QFrame QPushButton{{border:none;}}")
 
-        outer = QVBoxLayout(self)
-        outer.setContentsMargins(8, 7, 8, 7)
-        outer.setSpacing(5)
+        compact = getattr(panel, "_compact", False)
 
-        # ── Ligne 1 : handle + rang + pseudo + [basculer] ─
-        r1 = QHBoxLayout(); r1.setSpacing(6)
+        if compact:
+            # Mode compact : tout sur une ligne, marges réduites
+            outer = QHBoxLayout(self)
+            outer.setContentsMargins(4, 2, 4, 2)
+            outer.setSpacing(4)
 
-        hdl = QLabel("⠿")
-        hdl.setStyleSheet(
-            f"color:{T.ORANGE if hl else T.HINT};"
-            f"background:transparent;font-size:13pt;")
-        hdl.setCursor(Qt.CursorShape.SizeAllCursor)
-        hdl.setFixedWidth(14)
+            hdl = QLabel("⠿")
+            hdl.setStyleSheet(f"color:{T.ORANGE if hl else T.HINT};background:transparent;font-size:11pt;")
+            hdl.setCursor(Qt.CursorShape.SizeAllCursor)
+            hdl.setFixedWidth(12)
 
-        rang = _lbl(f"{idx + 1}.", T.HINT, "10pt")
-        rang.setFixedWidth(20)
+            rang = _lbl(f"{idx + 1}.", T.HINT, "9pt")
+            rang.setFixedWidth(16)
 
-        if win.loading:
-            name_color = T.HINT
-        elif hl:
-            name_color = T.ORANGE
-        elif is_active and not hl:
-            name_color = '#7ab87a'
-        elif is_skip:
-            name_color = T.RED
+            if win.loading: name_color = T.HINT
+            elif hl: name_color = T.ORANGE
+            elif is_active and not hl: name_color = '#7ab87a'
+            elif is_skip: name_color = T.RED
+            else: name_color = T.TEXT
+            lname = QLabel(win.pseudo)
+            lname.setStyleSheet(
+                f"color:{name_color};background:transparent;font-weight:bold;font-size:9pt;"
+                f"font-style:{'italic' if win.loading else 'normal'};"
+                + ("text-decoration:line-through;" if is_skip and not win.loading else ""))
+
+            if is_active and not hl:
+                arrow = QLabel("▶")
+                arrow.setStyleSheet("color:#7ab87a;background:transparent;font-size:8pt;")
+                outer.addWidget(arrow)
+            outer.addWidget(hdl); outer.addWidget(rang); outer.addWidget(lname, 1)
+
+            btn_m = _svg_btn(
+                _SVG_STAR_ON if is_main else _SVG_STAR_OFF,
+                "rgba(217,121,31,45)" if is_main else "transparent",
+                "Retirer principal" if is_main else "Définir principal")
+            btn_m.clicked.connect(lambda: panel._set_main(win.pseudo))
+            outer.addWidget(btn_m)
+
+            if not win.loading:
+                btn_s = _svg_btn(
+                    _SVG_CROSS if is_skip else _SVG_EXCLUDE,
+                    "rgba(140,64,56,45)" if is_skip else "transparent",
+                    "Réintégrer" if is_skip else "Exclure du cycle")
+                btn_s.clicked.connect(lambda: panel._toggle_skip(win.pseudo))
+                outer.addWidget(btn_s)
+
         else:
-            name_color = T.TEXT
-        lname = QLabel(win.pseudo)
-        lname.setStyleSheet(
-            f"color:{name_color};background:transparent;"
-            f"font-weight:bold;font-size:10pt;font-style:{'italic' if win.loading else 'normal'};"
-            + ("text-decoration:line-through;" if is_skip and not win.loading else ""))
+            # Mode normal : 2 lignes
+            outer = QVBoxLayout(self)
+            outer.setContentsMargins(8, 7, 8, 7)
+            outer.setSpacing(5)
 
-        if is_active and not hl:
-            arrow = QLabel("▶")
-            arrow.setStyleSheet("color:#7ab87a;background:transparent;font-size:9pt;")
-            r1.addWidget(arrow)
-        r1.addWidget(hdl); r1.addWidget(rang); r1.addWidget(lname, 1)
+            r1 = QHBoxLayout(); r1.setSpacing(6)
+            hdl = QLabel("⠿")
+            hdl.setStyleSheet(f"color:{T.ORANGE if hl else T.HINT};background:transparent;font-size:13pt;")
+            hdl.setCursor(Qt.CursorShape.SizeAllCursor)
+            hdl.setFixedWidth(14)
+            rang = _lbl(f"{idx + 1}.", T.HINT, "10pt")
+            rang.setFixedWidth(20)
 
+            if win.loading: name_color = T.HINT
+            elif hl: name_color = T.ORANGE
+            elif is_active and not hl: name_color = '#7ab87a'
+            elif is_skip: name_color = T.RED
+            else: name_color = T.TEXT
+            lname = QLabel(win.pseudo)
+            lname.setStyleSheet(
+                f"color:{name_color};background:transparent;"
+                f"font-weight:bold;font-size:10pt;font-style:{'italic' if win.loading else 'normal'};"
+                + ("text-decoration:line-through;" if is_skip and not win.loading else ""))
 
-        outer.addLayout(r1)
+            if is_active and not hl:
+                arrow = QLabel("▶")
+                arrow.setStyleSheet("color:#7ab87a;background:transparent;font-size:9pt;")
+                r1.addWidget(arrow)
+            r1.addWidget(hdl); r1.addWidget(rang); r1.addWidget(lname, 1)
+            outer.addLayout(r1)
 
-        # ── Ligne 2 : badges + actions ──────────────────────
-        r2 = QHBoxLayout(); r2.setSpacing(4)
-
-        if is_main:
-            b = QLabel("⭐ Principal")
-            b.setStyleSheet(
-                f"background:{T.ORANGE};color:white;"
-                f"font-size:8pt;font-weight:bold;padding:1px 5px;")
-            r2.addWidget(b)
-        elif is_skip:
-            b = QLabel("🚫 Exclu du cycle")
-            b.setStyleSheet(
-                f"background:{T.RED};color:white;"
-                f"font-size:8pt;font-weight:bold;padding:1px 5px;")
-            r2.addWidget(b)
-
-        r2.addStretch()
-
-        btn_m = _ibtn(
-            "★ Retirer principal" if is_main else "☆ Définir principal",
-            f"rgba(217,121,31,45)" if is_main else T.BG_DARK,
-            T.ORANGE if is_main else T.HINT, T.ORANGE)
-        btn_m.clicked.connect(lambda: panel._set_main(win.pseudo))
-        r2.addWidget(btn_m)
-
-        if not win.loading:
-            btn_s = _ibtn(
-                "⊗ Réintégrer" if is_skip else "○ Exclure",
-                f"rgba(140,64,56,45)" if is_skip else T.BG_DARK,
-                T.RED if is_skip else T.HINT, T.RED)
-            btn_s.clicked.connect(lambda: panel._toggle_skip(win.pseudo))
-            r2.addWidget(btn_s)
-        outer.addLayout(r2)
+            r2 = QHBoxLayout(); r2.setSpacing(4)
+            if is_main:
+                b = QLabel("⭐ Principal")
+                b.setStyleSheet(f"background:{T.ORANGE};color:white;font-size:8pt;font-weight:bold;padding:1px 5px;")
+                r2.addWidget(b)
+            elif is_skip:
+                b = QLabel("🚫 Exclu du cycle")
+                b.setStyleSheet(f"background:{T.RED};color:white;font-size:8pt;font-weight:bold;padding:1px 5px;")
+                r2.addWidget(b)
+            r2.addStretch()
+            btn_m = _svg_btn(
+                _SVG_STAR_ON if is_main else _SVG_STAR_OFF,
+                "rgba(217,121,31,45)" if is_main else T.BG_DARK,
+                "Retirer principal" if is_main else "Définir principal")
+            btn_m.clicked.connect(lambda: panel._set_main(win.pseudo))
+            r2.addWidget(btn_m)
+            if not win.loading:
+                btn_s = _svg_btn(
+                    _SVG_CROSS if is_skip else _SVG_EXCLUDE,
+                    "rgba(140,64,56,45)" if is_skip else T.BG_DARK,
+                    "Réintégrer" if is_skip else "Exclure du cycle")
+                btn_s.clicked.connect(lambda: panel._toggle_skip(win.pseudo))
+                r2.addWidget(btn_s)
+            outer.addLayout(r2)
 
         # ── Drag targets ───────────────────────────────────
         for w in [self, hdl, rang, lname]:
@@ -170,7 +246,8 @@ class AccountPanel(QWidget):
         root.setSpacing(0)
 
         # Header
-        hdr = QFrame()
+        self._hdr = QFrame()
+        hdr = self._hdr
         hdr.setStyleSheet(
             f"background:{T.BG_DARK};")
         hl = QHBoxLayout(hdr)
@@ -209,7 +286,8 @@ class AccountPanel(QWidget):
         root.addWidget(self._scroll)
 
         # Footer : hint
-        ftr = QFrame()
+        self._ftr = QFrame()
+        ftr = self._ftr
         ftr.setStyleSheet(f"background:{T.SURFACE};border:none;")
         fv = QVBoxLayout(ftr); fv.setContentsMargins(10,5,10,5); fv.setSpacing(4)
         fv.addWidget(_lbl(
@@ -219,7 +297,8 @@ class AccountPanel(QWidget):
 
         # ── Bouton barre des tâches — AU DESSUS de profils ───
         from PySide6.QtWidgets import QComboBox
-        btn_save = QPushButton("🖥  Appliquer l'ordre dans la barre des tâches")
+        self._btn_save_order = QPushButton("🖥  Appliquer l'ordre dans la barre des tâches")
+        btn_save = self._btn_save_order
         btn_save.setFixedHeight(34)
         btn_save.setStyleSheet(
             f"QPushButton{{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,"
@@ -233,7 +312,8 @@ class AccountPanel(QWidget):
         root.addWidget(btn_save)
 
         # ── Profils d'ordre ───────────────────────────────────
-        prof_frame = QFrame()
+        self._prof_frame = QFrame()
+        prof_frame = self._prof_frame
         prof_frame.setStyleSheet(f"background:{T.BG_DARK};border:none;")
         pl = QVBoxLayout(prof_frame); pl.setContentsMargins(8,8,8,8); pl.setSpacing(6)
 
@@ -326,9 +406,14 @@ class AccountPanel(QWidget):
         self._render()
 
     def _render(self, highlight: int | None = None):
-        while self._clay.count() > 1:
+        compact = getattr(self, "_compact", False)
+
+        # En mode compact : vider tout (pas de stretch à garder)
+        # En mode normal : garder le dernier item (le stretch)
+        limit = 0 if compact else 1
+        while self._clay.count() > limit:
             item = self._clay.takeAt(0)
-            if item.widget():
+            if item and item.widget():
                 item.widget().deleteLater()
         self._row_tops = []
 
@@ -348,8 +433,12 @@ class AccountPanel(QWidget):
                            panel=self)
             self._clay.insertWidget(i, row)
 
-        QApplication.processEvents()
-        self._compute_heights()
+        if compact:
+            n = max(1, len(self._windows))
+            self._scroll.setFixedHeight(min(n * 30, 400))
+            QTimer.singleShot(0, self._compute_heights)  # pour le drag
+        else:
+            QTimer.singleShot(0, self._compute_heights)
 
     def _compute_heights(self):
         self._row_tops = []
@@ -633,6 +722,31 @@ class AccountPanel(QWidget):
         self._refresh_profile_combo()
 
     # ── Polling ────────────────────────────────────────────
+
+
+    def set_compact(self, compact: bool):
+        """Mode compact : une ligne par fenêtre, sans header ni footer."""
+        self._compact = compact
+        self._hdr.setVisible(not compact)
+        self._ftr.setVisible(not compact)
+        self._btn_save_order.setVisible(not compact)
+        self._prof_frame.setVisible(not compact)
+        if compact:
+            for i in range(self._clay.count() - 1, -1, -1):
+                item = self._clay.itemAt(i)
+                if item and item.spacerItem():
+                    self._clay.removeItem(item)
+            n = max(1, len(self._windows))
+            self._scroll.setFixedHeight(min(n * 30, 400))
+        else:
+            has_stretch = any(
+                self._clay.itemAt(i) and self._clay.itemAt(i).spacerItem()
+                for i in range(self._clay.count())
+            )
+            if not has_stretch:
+                self._clay.addStretch()
+            self._scroll.setFixedHeight(490)
+        self._render()
 
     def _start_poll(self):
         self._discover()

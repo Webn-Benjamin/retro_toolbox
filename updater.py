@@ -18,7 +18,7 @@ import json
 import subprocess
 from pathlib import Path
 
-CURRENT_VERSION = "1.2.0"
+CURRENT_VERSION = "1.2.1"
 VERSION_URL     = "https://retro-toolbox.fr/version.json"
 
 # User-Agent navigateur pour eviter les blocages serveur

@@ -1,50 +1,101 @@
-"""theme.py — Fresh Green : blanc + gradients verts, design moderne."""
+"""theme.py — Système de thèmes avec support thèmes personnalisés."""
 import model
 
-# ── Palette Fresh Green (thème clair) ─────────────────────────────────
-_LIGHT = {
-    "BG":       "#f4fbf7",
-    "BG_DARK":  "#e8f5ed",
-    "SURFACE":  "#ffffff",
-    "SURFACE2": "#f0faf4",
-    "BORDER":   "#c8e6d0",
-    "BORDER2":  "#a8d4b8",
-    "TEXT":     "#0d2318",
-    "SUBTEXT":  "#2e6648",
-    "HINT":     "#74b08a",
+# ── Thèmes intégrés ────────────────────────────────────────────────────
+
+BUILTIN_THEMES = {
+
+    "clair": {
+        "BG":       "#f4fbf7",
+        "BG_DARK":  "#e8f5ed",
+        "SURFACE":  "#ffffff",
+        "SURFACE2": "#f0faf4",
+        "BORDER":   "#c8e6d0",
+        "BORDER2":  "#a8d4b8",
+        "TEXT":     "#0d2318",
+        "SUBTEXT":  "#2e6648",
+        "HINT":     "#74b08a",
+        "ORANGE":   "#00b86e",
+        "ORANGE_L": "#26cc87",
+        "ORANGE_D": "#009958",
+        "GREEN":    "#00b86e",
+        "RED":      "#e53935",
+        "BLUE":     "#1e88e5",
+        "GOLD":     "#f59520",
+        "GRAD1":    "#00b86e",
+        "GRAD2":    "#00968a",
+    },
+
+    "sombre": {
+        "BG":       "#0d1610",
+        "BG_DARK":  "#080f0a",
+        "SURFACE":  "#111c14",
+        "SURFACE2": "#162318",
+        "BORDER":   "#1e3024",
+        "BORDER2":  "#274034",
+        "TEXT":     "#d4edd8",
+        "SUBTEXT":  "#5a9068",
+        "HINT":     "#3a6044",
+        "ORANGE":   "#00b86e",
+        "ORANGE_L": "#26cc87",
+        "ORANGE_D": "#009958",
+        "GREEN":    "#00b86e",
+        "RED":      "#e53935",
+        "BLUE":     "#1e88e5",
+        "GOLD":     "#f59520",
+        "GRAD1":    "#00b86e",
+        "GRAD2":    "#00968a",
+    },
+
+    "retro": {
+        "BG":       "#F8F2E6",
+        "BG_DARK":  "#EDE4CC",
+        "SURFACE":  "#F8F2E6",
+        "SURFACE2": "#F0E8D4",
+        "BORDER":   "#D0C4A0",
+        "BORDER2":  "#BCA878",
+        "TEXT":     "#2C1C08",
+        "SUBTEXT":  "#4A3818",
+        "HINT":     "#6A5030",
+        "ORANGE":   "#5A3A18",
+        "ORANGE_L": "#7A5A38",
+        "ORANGE_D": "#3A2008",
+        "GREEN":    "#5A7A28",
+        "RED":      "#B03020",
+        "BLUE":     "#2860A0",
+        "GOLD":     "#C88010",
+        "GRAD1":    "#5A3A18",
+        "GRAD2":    "#3A2008",
+    },
+
+    "retro_dark": {
+        "BG":       "#121008",
+        "BG_DARK":  "#1C1610",
+        "SURFACE":  "#1C1610",
+        "SURFACE2": "#241E14",
+        "BORDER":   "#2C2218",
+        "BORDER2":  "#3C2E20",
+        "TEXT":     "#ECD8A8",
+        "SUBTEXT":  "#C8A870",
+        "HINT":     "#7A5A38",
+        "ORANGE":   "#C8873A",
+        "ORANGE_L": "#E0A050",
+        "ORANGE_D": "#A06820",
+        "GREEN":    "#6A8A38",
+        "RED":      "#D07060",
+        "BLUE":     "#5880B0",
+        "GOLD":     "#D09030",
+        "GRAD1":    "#5A3A18",
+        "GRAD2":    "#3A2008",
+    },
 }
 
-# ── Palette sombre (dark mode) ─────────────────────────────────────────
-_DARK = {
-    "BG":       "#0d1610",
-    "BG_DARK":  "#080f0a",
-    "SURFACE":  "#111c14",
-    "SURFACE2": "#162318",
-    "BORDER":   "#1e3024",
-    "BORDER2":  "#274034",
-    "TEXT":     "#d4edd8",
-    "SUBTEXT":  "#5a9068",
-    "HINT":     "#3a6044",
+BUILTIN_LABELS = {
+    "clair":      "☀️  Clair",
+    "sombre":     "🌙  Sombre",
+    "retro":      "🏺  Rétro",
+    "retro_dark": "🏺  Rétro sombre",
 }
-
-# ── Commun aux deux thèmes ─────────────────────────────────────────────
-_COMMON = {
-    "ORANGE":   "#00b86e",   # accent principal (vert)
-    "ORANGE_L": "#26cc87",   # hover
-    "ORANGE_D": "#009958",   # pressed
-    "GREEN":    "#00b86e",
-    "RED":      "#e53935",
-    "BLUE":     "#1e88e5",
-    "GOLD":     "#f59520",
-    "GRAD1":    "#00b86e",   # début gradient
-    "GRAD2":    "#00968a",   # fin gradient
-}
-
-
-def _load_palette():
-    dark = model.load_config().get("dark_theme", False)
-    p    = _DARK if dark else _LIGHT
-    return {**p, **_COMMON}
 
 
 def _gradient(p):
@@ -56,16 +107,8 @@ def _gradient_v(p):
             f"stop:0 {p['GRAD1']},stop:1 {p['GRAD2']})")
 
 
-def apply(palette: dict):
-    import sys
-    mod = sys.modules[__name__]
-    for k, v in palette.items():
-        setattr(mod, k, v)
-    mod.QSS = _make_qss(palette)
-
-
 def _make_qss(p: dict) -> str:
-    grad  = _gradient(p)
+    grad   = _gradient(p)
     grad_v = _gradient_v(p)
     return f"""
 QMainWindow {{
@@ -89,7 +132,6 @@ QMainWindow > QWidget {{ background-color: {p['BG']}; }}
 QDialog     > QWidget {{ background-color: {p['BG']}; }}
 QScrollArea > QWidget > QWidget {{ background-color: {p['BG']}; }}
 
-/* ── Tooltips ───────────────────────────────── */
 QToolTip {{
     background-color: {p['TEXT']};
     color: {p['SURFACE']};
@@ -98,7 +140,6 @@ QToolTip {{
     border-radius: 4px;
 }}
 
-/* ── Boutons génériques ─────────────────────── */
 QPushButton {{
     background-color: {p['BG_DARK']};
     color: {p['SUBTEXT']};
@@ -115,7 +156,6 @@ QPushButton:pressed {{
     background-color: {p['BORDER2']};
 }}
 
-/* ── Boutons accent (gradient vert) ─────────── */
 QPushButton#btn_orange,
 QPushButton#btn_accent {{
     background: {grad};
@@ -126,7 +166,7 @@ QPushButton#btn_accent {{
 }}
 QPushButton#btn_orange:hover,
 QPushButton#btn_accent:hover {{
-    background: {_gradient_v(p)};
+    background: {grad_v};
 }}
 QPushButton#btn_green {{
     background: {grad};
@@ -149,7 +189,6 @@ QPushButton#btn_blue {{
     border-radius: 8px;
 }}
 
-/* ── Navbar principale ──────────────────────── */
 QPushButton#nav_active {{
     background-color: {p['SURFACE']};
     color: {p['ORANGE']};
@@ -169,7 +208,6 @@ QPushButton#nav_inactive {{
 }}
 QPushButton#nav_inactive:hover {{ color: {p['SUBTEXT']}; }}
 
-/* ── Cards ──────────────────────────────────── */
 QFrame#card {{
     background-color: {p['SURFACE']};
     border: 1px solid {p['BORDER']};
@@ -186,7 +224,6 @@ QFrame#sep {{
     border: none;
 }}
 
-/* ── Inputs ─────────────────────────────────── */
 QLineEdit {{
     background-color: {p['SURFACE']};
     border: 1px solid {p['BORDER']};
@@ -219,7 +256,6 @@ QSpinBox {{
     color: {p['TEXT']};
 }}
 
-/* ── Scrollbars ─────────────────────────────── */
 QScrollBar:vertical {{
     background: transparent;
     width: 5px;
@@ -234,7 +270,6 @@ QScrollBar::handle:vertical:hover {{ background: {p['ORANGE']}; }}
 QScrollBar::add-line:vertical,
 QScrollBar::sub-line:vertical {{ height: 0; }}
 
-/* ── Sliders ────────────────────────────────── */
 QSlider::groove:horizontal {{
     background: {p['BG_DARK']};
     height: 4px;
@@ -253,7 +288,6 @@ QSlider::sub-page:horizontal {{
     border-radius: 2px;
 }}
 
-/* ── Dialogs ────────────────────────────────── */
 QDialog QLabel {{ background-color: transparent; color: {p['TEXT']}; }}
 QDialog QPushButton {{
     background-color: {p['BG_DARK']};
@@ -267,8 +301,26 @@ QDialog QPushButton:hover {{ background-color: {p['BORDER']}; }}
 """
 
 
-# ── Init ──────────────────────────────────────────────────────────────
-_p       = _load_palette()
+def get_active_palette() -> dict:
+    """Retourne la palette active (builtin ou custom)."""
+    cfg = model.load_config()
+    theme_name = cfg.get("theme_name", "")
+    # Thème personnalisé
+    if theme_name.startswith("custom:"):
+        custom_name = theme_name[7:]
+        customs = cfg.get("custom_themes", {})
+        if custom_name in customs:
+            return customs[custom_name]
+    # Thème builtin
+    if theme_name in BUILTIN_THEMES:
+        return BUILTIN_THEMES[theme_name]
+    # Compatibilité ancienne config
+    dark = cfg.get("dark_theme", False)
+    return BUILTIN_THEMES["sombre" if dark else "clair"]
+
+
+# ── Init au démarrage ──────────────────────────────────────────────────
+_p       = get_active_palette()
 BG       = _p["BG"];      BG_DARK  = _p["BG_DARK"]
 SURFACE  = _p["SURFACE"]; SURFACE2 = _p["SURFACE2"]
 BORDER   = _p["BORDER"];  BORDER2  = _p["BORDER2"]

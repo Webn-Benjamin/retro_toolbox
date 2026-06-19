@@ -1,5 +1,5 @@
 {
-  "version": "1.2.0",
+  "version": "1.2.1",
   "url": "https://retro-toolbox.fr/retro_toolbox.exe",
-  "notes": "-NOUVEAU : Prix HDV communautaires — partagez et consultez les prix de l'Hotel de Vente par serveur (Boune, Allisteria, Fallanster), par lot x1/x10/x100 -Historique des prix avec graphique (7/15/30 jours) et systeme de favoris -Recherche, filtres et tri des ressources -Securite communautaire : validation anti-troll, signalement, pseudos uniques, limites anti-spam -Onglet Prix HDV accessible directement depuis le menu principal -Corrections visuelles"
+  "notes": "Voir sur discord changelog, important: télécharger l'appli depuis le site, l'updater automatique n'est pas fonctionnel à 100%"
 }

@@ -250,8 +250,9 @@ class TimerTab(QWidget):
         af.addWidget(_mk_lbl("🔔", size="10pt"))
         af.addWidget(_mk_lbl("Alerte timer", T.TEXT, "8pt"))
 
-        _alert_val = model.load_config().get("timer_alert_min", 5)
-        _alert_steps = [5, 10, 15, 20, 25, 30]
+        _alert_sec    = model.get_alert_threshold()
+        _alert_val    = max(1, round(_alert_sec / 60))
+        _alert_steps  = [5, 10, 15, 20, 25, 30]
         _alert_idx = min(range(len(_alert_steps)), key=lambda i: abs(_alert_steps[i]-_alert_val))
 
         self._alert_sl = _SL(Qt.Orientation.Horizontal)
@@ -275,7 +276,7 @@ class TimerTab(QWidget):
         def _on_alert(idx):
             v = _alert_steps[idx]
             self._alert_lbl.setText(f"{v} min")
-            cfg = model.load_config(); cfg["timer_alert_min"] = v; model.save_config(cfg)
+            model.set_alert_threshold(v * 60)
         self._alert_sl.valueChanged.connect(_on_alert)
 
         af.addWidget(self._alert_sl, 1)

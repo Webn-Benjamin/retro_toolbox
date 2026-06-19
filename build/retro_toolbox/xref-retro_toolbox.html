@@ -2828,6 +2828,7 @@ imported by:
  &#8226;   <a href="#main_window">main_window</a>
  &#8226;   <a href="#tabs.about_tab">tabs.about_tab</a>
  &#8226;   <a href="#tabs.accounts.characters_panel">tabs.accounts.characters_panel</a>
+ &#8226;   <a href="#tabs.accounts.move_mode">tabs.accounts.move_mode</a>
  &#8226;   <a href="#tabs.accounts.notif_help">tabs.accounts.notif_help</a>
  &#8226;   <a href="#tabs.accounts.settings_panel">tabs.accounts.settings_panel</a>
  &#8226;   <a href="#tabs.accounts.shortcuts_panel">tabs.accounts.shortcuts_panel</a>
@@ -2872,6 +2873,7 @@ imported by:
     <a href="#PySide6.QtGui">PySide6.QtGui</a>
  &#8226;   <a href="#PySide6.QtWidgets">PySide6.QtWidgets</a>
  &#8226;   <a href="#main_window">main_window</a>
+ &#8226;   <a href="#tabs.accounts.characters_panel">tabs.accounts.characters_panel</a>
  &#8226;   <a href="#tabs.accounts.shortcuts_panel">tabs.accounts.shortcuts_panel</a>
  &#8226;   <a href="#tabs.challenges_tab">tabs.challenges_tab</a>
  &#8226;   <a href="#tabs.craft_tab">tabs.craft_tab</a>
@@ -2879,6 +2881,7 @@ imported by:
  &#8226;   <a href="#tabs.hdv_tab">tabs.hdv_tab</a>
  &#8226;   <a href="#tabs.overlay_tab">tabs.overlay_tab</a>
  &#8226;   <a href="#tabs.runes_tab">tabs.runes_tab</a>
+ &#8226;   <a href="#tabs.settings_tab">tabs.settings_tab</a>
  &#8226;   <a href="#tabs.todo_tab">tabs.todo_tab</a>
 
   </div>
@@ -3122,6 +3125,7 @@ imported by:
  &#8226;   <a href="#keyboard">keyboard</a>
  &#8226;   <a href="#keyboard._canonical_names">keyboard._canonical_names</a>
  &#8226;   <a href="#keyboard._winkeyboard">keyboard._winkeyboard</a>
+ &#8226;   <a href="#os_bridge.focus_assist">os_bridge.focus_assist</a>
  &#8226;   <a href="#os_bridge.mac">os_bridge.mac</a>
  &#8226;   <a href="#os_bridge.windows">os_bridge.windows</a>
  &#8226;   <a href="#packaging.version">packaging.version</a>
@@ -6839,8 +6843,6 @@ imported by:
 imports:
     <a href="#_ctypes">_ctypes</a>
  &#8226;   <a href="#ctypes._endian">ctypes._endian</a>
- &#8226;   <a href="#ctypes.util">ctypes.util</a>
- &#8226;   <a href="#ctypes.wintypes">ctypes.wintypes</a>
  &#8226;   <a href="#nt">nt</a>
  &#8226;   <a href="#os">os</a>
  &#8226;   <a href="#struct">struct</a>
@@ -7027,7 +7029,6 @@ imports:
   <div class="import">
 imported by:
     <a href="#_ios_support">_ios_support</a>
- &#8226;   <a href="#ctypes">ctypes</a>
  &#8226;   <a href="#keyboard._darwinkeyboard">keyboard._darwinkeyboard</a>
 
   </div>
@@ -7044,8 +7045,7 @@ imports:
   </div>
   <div class="import">
 imported by:
-    <a href="#ctypes">ctypes</a>
- &#8226;   <a href="#ctypes.util">ctypes.util</a>
+    <a href="#ctypes.util">ctypes.util</a>
  &#8226;   <a href="#keyboard._winkeyboard">keyboard._winkeyboard</a>
  &#8226;   <a href="#tabs.accounts.characters_panel">tabs.accounts.characters_panel</a>
  &#8226;   <a href="#tabs.accounts.move_mode">tabs.accounts.move_mode</a>
@@ -12278,6 +12278,8 @@ imports:
  &#8226;   <a href="#PySide6.QtGui">PySide6.QtGui</a>
  &#8226;   <a href="#PySide6.QtWidgets">PySide6.QtWidgets</a>
  &#8226;   <a href="#model">model</a>
+ &#8226;   <a href="#os_bridge">os_bridge</a>
+ &#8226;   <a href="#os_bridge.focus_assist">os_bridge.focus_assist</a>
  &#8226;   <a href="#pathlib">pathlib</a>
  &#8226;   <a href="#sys">sys</a>
  &#8226;   <a href="#tabs.about_tab">tabs.about_tab</a>
@@ -20204,6 +20206,7 @@ imported by:
  &#8226;   <a href="#numpy.testing._private.extbuild">numpy.testing._private.extbuild</a>
  &#8226;   <a href="#numpy.testing._private.utils">numpy.testing._private.utils</a>
  &#8226;   <a href="#os.path">os.path</a>
+ &#8226;   <a href="#os_bridge.focus_assist">os_bridge.focus_assist</a>
  &#8226;   <a href="#os_bridge.mac">os_bridge.mac</a>
  &#8226;   <a href="#pathlib">pathlib</a>
  &#8226;   <a href="#pathlib._os">pathlib._os</a>
@@ -20229,6 +20232,7 @@ imported by:
  &#8226;   <a href="#subprocess">subprocess</a>
  &#8226;   <a href="#sysconfig">sysconfig</a>
  &#8226;   <a href="#tabs.craft_tab">tabs.craft_tab</a>
+ &#8226;   <a href="#tabs.settings_tab">tabs.settings_tab</a>
  &#8226;   <a href="#tarfile">tarfile</a>
  &#8226;   <a href="#tempfile">tempfile</a>
  &#8226;   <a href="#threading">threading</a>
@@ -20277,14 +20281,18 @@ imported by:
   <a target="code" href="///C:/Users/benja/Desktop/retro_toolbox/os_bridge/__init__.py" type="text/plain"><tt>os_bridge</tt></a>
 <span class="moduletype">Package</span>  <div class="import">
 imports:
-    <a href="#sys">sys</a>
+    <a href="#os_bridge.focus_assist">os_bridge.focus_assist</a>
+ &#8226;   <a href="#sys">sys</a>
 
   </div>
   <div class="import">
 imported by:
-    <a href="#os_bridge.bridge">os_bridge.bridge</a>
+    <a href="#main_window">main_window</a>
+ &#8226;   <a href="#os_bridge.bridge">os_bridge.bridge</a>
+ &#8226;   <a href="#os_bridge.focus_assist">os_bridge.focus_assist</a>
  &#8226;   <a href="#os_bridge.mac">os_bridge.mac</a>
  &#8226;   <a href="#os_bridge.windows">os_bridge.windows</a>
+ &#8226;   <a href="#tabs.settings_tab">tabs.settings_tab</a>
 
   </div>
 
@@ -20308,6 +20316,28 @@ imported by:
     <a href="#tabs.accounts.characters_panel">tabs.accounts.characters_panel</a>
  &#8226;   <a href="#tabs.accounts.hotkey_manager">tabs.accounts.hotkey_manager</a>
  &#8226;   <a href="#tabs.accounts.window_manager">tabs.accounts.window_manager</a>
+
+  </div>
+
+</div>
+
+<div class="node">
+  <a name="os_bridge.focus_assist"></a>
+  <a target="code" href="///C:/Users/benja/Desktop/retro_toolbox/os_bridge/focus_assist.py" type="text/plain"><tt>os_bridge.focus_assist</tt></a>
+<span class="moduletype">SourceModule</span>  <div class="import">
+imports:
+    <a href="#__future__">__future__</a>
+ &#8226;   <a href="#os">os</a>
+ &#8226;   <a href="#os_bridge">os_bridge</a>
+ &#8226;   <a href="#sys">sys</a>
+ &#8226;   <a href="#winreg">winreg</a>
+
+  </div>
+  <div class="import">
+imported by:
+    <a href="#main_window">main_window</a>
+ &#8226;   <a href="#os_bridge">os_bridge</a>
+ &#8226;   <a href="#tabs.settings_tab">tabs.settings_tab</a>
 
   </div>
 
@@ -22249,6 +22279,7 @@ imported by:
  &#8226;   <a href="#os">os</a>
  &#8226;   <a href="#os_bridge">os_bridge</a>
  &#8226;   <a href="#os_bridge.bridge">os_bridge.bridge</a>
+ &#8226;   <a href="#os_bridge.focus_assist">os_bridge.focus_assist</a>
  &#8226;   <a href="#packaging.version">packaging.version</a>
  &#8226;   <a href="#pathlib">pathlib</a>
  &#8226;   <a href="#pathlib._os">pathlib._os</a>
@@ -22287,9 +22318,9 @@ imported by:
  &#8226;   <a href="#tabs.accounts_tab">tabs.accounts_tab</a>
  &#8226;   <a href="#tabs.challenges_tab">tabs.challenges_tab</a>
  &#8226;   <a href="#tabs.dashboard_tab">tabs.dashboard_tab</a>
+ &#8226;   <a href="#tabs.settings_tab">tabs.settings_tab</a>
  &#8226;   <a href="#tarfile">tarfile</a>
  &#8226;   <a href="#tempfile">tempfile</a>
- &#8226;   <a href="#theme">theme</a>
  &#8226;   <a href="#threading">threading</a>
  &#8226;   <a href="#tokenize">tokenize</a>
  &#8226;   <a href="#traceback">traceback</a>
@@ -22433,6 +22464,7 @@ imported by:
 <span class="moduletype">SourceModule</span>  <div class="import">
 imports:
     <a href="#PySide6.QtCore">PySide6.QtCore</a>
+ &#8226;   <a href="#PySide6.QtGui">PySide6.QtGui</a>
  &#8226;   <a href="#PySide6.QtWidgets">PySide6.QtWidgets</a>
  &#8226;   <a href="#__future__">__future__</a>
  &#8226;   <a href="#ctypes">ctypes</a>
@@ -22451,6 +22483,7 @@ imports:
   <div class="import">
 imported by:
     <a href="#tabs.accounts_tab">tabs.accounts_tab</a>
+ &#8226;   <a href="#tabs.settings_tab">tabs.settings_tab</a>
 
   </div>
 
@@ -22483,7 +22516,8 @@ imported by:
   <a target="code" href="///C:/Users/benja/Desktop/retro_toolbox/tabs/accounts/move_mode.py" type="text/plain"><tt>tabs.accounts.move_mode</tt></a>
 <span class="moduletype">SourceModule</span>  <div class="import">
 imports:
-    <a href="#__future__">__future__</a>
+    <a href="#PySide6.QtCore">PySide6.QtCore</a>
+ &#8226;   <a href="#__future__">__future__</a>
  &#8226;   <a href="#ctypes">ctypes</a>
  &#8226;   <a href="#ctypes.wintypes">ctypes.wintypes</a>
  &#8226;   <a href="#re">re</a>
@@ -22897,9 +22931,15 @@ imported by:
 <span class="moduletype">SourceModule</span>  <div class="import">
 imports:
     <a href="#PySide6.QtCore">PySide6.QtCore</a>
+ &#8226;   <a href="#PySide6.QtGui">PySide6.QtGui</a>
  &#8226;   <a href="#PySide6.QtWidgets">PySide6.QtWidgets</a>
  &#8226;   <a href="#model">model</a>
+ &#8226;   <a href="#os">os</a>
+ &#8226;   <a href="#os_bridge">os_bridge</a>
+ &#8226;   <a href="#os_bridge.focus_assist">os_bridge.focus_assist</a>
+ &#8226;   <a href="#sys">sys</a>
  &#8226;   <a href="#tabs">tabs</a>
+ &#8226;   <a href="#tabs.accounts.characters_panel">tabs.accounts.characters_panel</a>
  &#8226;   <a href="#theme">theme</a>
 
   </div>
@@ -23101,7 +23141,6 @@ imported by:
 imports:
     <a href="#PySide6.QtWidgets">PySide6.QtWidgets</a>
  &#8226;   <a href="#model">model</a>
- &#8226;   <a href="#sys">sys</a>
 
   </div>
   <div class="import">
@@ -24471,6 +24510,7 @@ imported by:
 imported by:
     <a href="#importlib._bootstrap_external">importlib._bootstrap_external</a>
  &#8226;   <a href="#mimetypes">mimetypes</a>
+ &#8226;   <a href="#os_bridge.focus_assist">os_bridge.focus_assist</a>
  &#8226;   <a href="#platform">platform</a>
  &#8226;   <a href="#urllib.request">urllib.request</a>
 

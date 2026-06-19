@@ -72,17 +72,24 @@ class SessionTab(QWidget):
         super().__init__(parent)
         cfg = model.load_config()
         self._farm_elapsed = 0
+        self._farm_elapsed_f = 0.0
         self._farm_running = False
         self._farm_tick    = 0.0
         self._don_elapsed  = 0          # chrono du donjon en cours
+        self._don_elapsed_f = 0.0
         self._don_total    = 0          # temps cumulé de tous les donjons (pour stats)
+        self._don_total_f  = 0.0
         self._don_running  = False
         self._don_tick     = 0.0
         self._cap_total    = 0          # temps cumulé chrono captures (pour stats)
+        self._cap_total_f  = 0.0
+        self._cap_running_elapsed_f = 0.0
         self._cap_running  = False
         self._cap_tick     = 0.0
         self._donjons      = cfg.get("session_donjons", 0)
         self._captures     = cfg.get("session_captures", 0)
+        self._pending_save = {}
+        self._save_timer   = None
         self._build()
         self._load_state()
 
@@ -362,24 +369,32 @@ class SessionTab(QWidget):
             self._farm_status.setStyleSheet(
                 f"background:{T.BG_DARK};color:{T.ORANGE};font-size:8pt;font-weight:bold;"
                 f"border-radius:8px;padding:2px 8px;border:none;")
-        self._save("session_farm_elapsed", self._farm_elapsed)
+        self._save("session_farm_elapsed", self._farm_elapsed, immediate=True)
 
     def _farm_tick_fn(self):
         now = time.time()
-        self._farm_elapsed += int(now - self._farm_tick); self._farm_tick = now
+        # Précision flottante : int() tronquait chaque delta vers le bas, ce qui
+        # faisait perdre des fractions de seconde à chaque tick et accumulait
+        # un retard significatif sur la durée (le chrono affichait "1s" pour
+        # 2-3s réelles écoulées). On accumule en float puis on arrondit pour
+        # l'affichage uniquement.
+        self._farm_elapsed_f += now - self._farm_tick
+        self._farm_tick = now
+        self._farm_elapsed = round(self._farm_elapsed_f)
         self._farm_lbl.setText(self._fmt(self._farm_elapsed))
         self._update_recap()
         self._save("session_farm_elapsed", self._farm_elapsed)
 
     def _reset_farm(self):
-        self._farm_running = False; self._farm_timer.stop(); self._farm_elapsed = 0
+        self._farm_running = False; self._farm_timer.stop()
+        self._farm_elapsed = 0; self._farm_elapsed_f = 0.0
         self._farm_btn.setText("▶  Démarrer")
         self._farm_status.setText("En pause")
         self._farm_status.setStyleSheet(
             f"background:{T.BG_DARK};color:{T.HINT};font-size:8pt;"
             f"border-radius:8px;padding:2px 8px;border:none;")
         self._farm_lbl.setText("00:00:00")
-        self._update_recap(); self._save("session_farm_elapsed", 0)
+        self._update_recap(); self._save("session_farm_elapsed", 0, immediate=True)
 
     # ─── Chrono donjon ────────────────────────────────────────────────
     def _toggle_don(self):
@@ -401,9 +416,12 @@ class SessionTab(QWidget):
 
     def _don_tick_fn(self):
         now = time.time()
-        delta = int(now - self._don_tick); self._don_tick = now
-        self._don_elapsed += delta
-        self._don_total   += delta
+        delta_f = now - self._don_tick
+        self._don_tick = now
+        self._don_elapsed_f += delta_f
+        self._don_total_f   += delta_f
+        self._don_elapsed = round(self._don_elapsed_f)
+        self._don_total   = round(self._don_total_f)
         self._don_time_lbl.setText(self._fmt(self._don_elapsed))
         self._don_total_lbl.setText(self._fmt(self._don_total))
         self._update_recap()
@@ -429,10 +447,13 @@ class SessionTab(QWidget):
 
     def _cap_tick_fn(self):
         now = time.time()
-        delta = int(now - self._cap_tick); self._cap_tick = now
-        self._cap_running_elapsed = getattr(self, '_cap_running_elapsed', 0) + delta
-        self._cap_total += delta
-        self._cap_time_lbl.setText(self._fmt(getattr(self, '_cap_running_elapsed', 0)))
+        delta_f = now - self._cap_tick
+        self._cap_tick = now
+        self._cap_running_elapsed_f = getattr(self, '_cap_running_elapsed_f', 0.0) + delta_f
+        self._cap_total_f = getattr(self, '_cap_total_f', float(self._cap_total)) + delta_f
+        self._cap_running_elapsed = round(self._cap_running_elapsed_f)
+        self._cap_total = round(self._cap_total_f)
+        self._cap_time_lbl.setText(self._fmt(self._cap_running_elapsed))
         self._cap_total_lbl.setText(self._fmt(self._cap_total))
         self._update_recap()
         self._save("session_cap_total", self._cap_total)
@@ -441,6 +462,7 @@ class SessionTab(QWidget):
         """Reset le chrono captures en cours (garde le total cumulé)."""
         self._cap_running = False; self._cap_timer.stop()
         self._cap_running_elapsed = 0
+        self._cap_running_elapsed_f = 0.0
         self._cap_btn.setText("▶  Démarrer")
         self._cap_btn.setStyleSheet(
             f"QPushButton{{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,"
@@ -451,7 +473,8 @@ class SessionTab(QWidget):
 
     def _reset_don_timer(self):
         """Reset le chrono du donjon en cours (garde le total cumulé)."""
-        self._don_running = False; self._don_timer.stop(); self._don_elapsed = 0
+        self._don_running = False; self._don_timer.stop()
+        self._don_elapsed = 0; self._don_elapsed_f = 0.0
         self._don_btn.setText("▶  Démarrer")
         self._don_btn.setStyleSheet(
             f"QPushButton{{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,"
@@ -464,22 +487,22 @@ class SessionTab(QWidget):
     def _change_don(self, delta):
         self._donjons = max(0, self._donjons + delta)
         self._don_lbl.setText(str(self._donjons))
-        self._update_recap(); self._save("session_donjons", self._donjons)
+        self._update_recap(); self._save("session_donjons", self._donjons, immediate=True)
 
     def _reset_don(self):
         self._donjons = 0; self._don_lbl.setText("0")
-        self._update_recap(); self._save("session_donjons", 0)
+        self._update_recap(); self._save("session_donjons", 0, immediate=True)
 
     # ─── Captures / Combats ───────────────────────────────────────────
     def _change_counter(self, attr, key, delta):
         setattr(self, attr, max(0, getattr(self, attr) + delta))
         getattr(self, f"{attr}_lbl").setText(str(getattr(self, attr)))
-        self._update_recap(); self._save(key, getattr(self, attr))
+        self._update_recap(); self._save(key, getattr(self, attr), immediate=True)
 
     def _reset_counter(self, attr, key):
         setattr(self, attr, 0)
         getattr(self, f"{attr}_lbl").setText("0")
-        self._update_recap(); self._save(key, 0)
+        self._update_recap(); self._save(key, 0, immediate=True)
 
     # ─── Récap ────────────────────────────────────────────────────────
     def _update_recap(self):
@@ -533,14 +556,37 @@ class SessionTab(QWidget):
         h, r = divmod(int(sec), 3600); m, s = divmod(r, 60)
         return f"{h:02d}:{m:02d}:{s:02d}"
 
-    def _save(self, key, val):
-        cfg = model.load_config(); cfg[key] = val; model.save_config(cfg)
+    def _save(self, key, val, immediate=False):
+        """Sauvegarde différée : accumule en mémoire, écrit sur disque
+        au maximum toutes les 10s pour éviter de saturer le disque
+        quand plusieurs timers tournent en même temps (1 tick/s chacun)."""
+        self._pending_save[key] = val
+        if immediate:
+            self._flush_save()
+            return
+        if self._save_timer is None:
+            self._save_timer = QTimer(self)
+            self._save_timer.setSingleShot(True)
+            self._save_timer.timeout.connect(self._flush_save)
+        if not self._save_timer.isActive():
+            self._save_timer.start(10000)  # flush au bout de 10s d'inactivité d'écriture
+
+    def _flush_save(self):
+        if not self._pending_save:
+            return
+        cfg = model.load_config()
+        cfg.update(self._pending_save)
+        model.save_config(cfg)
+        self._pending_save = {}
 
     def _load_state(self):
         cfg = model.load_config()
         self._farm_elapsed = cfg.get("session_farm_elapsed", 0)
+        self._farm_elapsed_f = float(self._farm_elapsed)
         self._don_total    = cfg.get("session_don_total", 0)
+        self._don_total_f  = float(self._don_total)
         self._cap_total    = cfg.get("session_cap_total", 0)
+        self._cap_total_f  = float(self._cap_total)
         self._farm_lbl.setText(self._fmt(self._farm_elapsed))
         self._don_lbl.setText(str(self._donjons))
         self._captures_lbl.setText(str(self._captures))
@@ -552,11 +598,11 @@ class SessionTab(QWidget):
 
     def _reset_all(self):
         self._reset_farm(); self._reset_don(); self._reset_don_timer()
-        self._don_total = 0
+        self._don_total = 0; self._don_total_f = 0.0
         self._don_total_lbl.setText("00:00:00")
         self._save("session_don_total", 0)
         self._reset_cap_timer()
-        self._cap_total = 0
+        self._cap_total = 0; self._cap_total_f = 0.0
         self._cap_total_lbl.setText("00:00:00")
         self._save("session_cap_total", 0)
         self._reset_counter("_captures", "session_captures")

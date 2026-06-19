@@ -109,12 +109,20 @@ def _run_async(parent, fn, on_done, *args, **kwargs):
     worker.done.connect(thread.quit)
     worker.done.connect(worker.deleteLater)
     thread.finished.connect(thread.deleteLater)
-    # garder une réf pour éviter le GC
+    # Garder une réf sur le THREAD ET le WORKER pour éviter le GC prématuré.
+    # Sans la réf sur worker, Python peut le garbage-collecter avant que
+    # thread.start() ait eu le temps d'exécuter worker.run() dans le thread —
+    # le signal "done" n'est alors jamais émis, le callback ne s'exécute jamais,
+    # et l'UI reste bloquée en "Chargement..." indéfiniment (bug "boucle infinie").
     if not hasattr(parent, "_threads"):
         parent._threads = []
-    parent._threads.append(thread)
-    thread.finished.connect(lambda: parent._threads.remove(thread)
-                            if thread in parent._threads else None)
+    parent._threads.append((thread, worker))
+    def _cleanup():
+        for pair in list(parent._threads):
+            if pair[0] is thread:
+                parent._threads.remove(pair)
+                break
+    thread.finished.connect(_cleanup)
     thread.start()
 
 
@@ -259,17 +267,26 @@ class HdvTab(QWidget):
         # Délai de changement de pseudo (lu depuis la config serveur, défaut 15j)
         self._pseudo_change_days = 15
         self._favorites = self._load_favorites()
-        try:
-            cfg = api.get_settings()
-            if cfg.get("pseudo_change_days"):
-                self._pseudo_change_days = int(float(cfg["pseudo_change_days"]))
-        except Exception:
-            pass
         self._build()
+        # Décaler tous les appels réseau après l'affichage de la fenêtre
+        # pour ne pas bloquer le thread principal au démarrage
+        QTimer.singleShot(0, self._init_async)
+
+    # ── Construction UI ──────────────────────────────────────────────
+    def _init_async(self):
+        """Charge les données réseau en arrière-plan après l'affichage."""
+        def fetch_settings():
+            try:
+                cfg = api.get_settings()
+                if cfg.get("pseudo_change_days"):
+                    self._pseudo_change_days = int(float(cfg["pseudo_change_days"]))
+            except Exception:
+                pass
+
+        _run_async(self, fetch_settings, lambda _: None)
         self._load_prices()
         self._load_items()
 
-    # ── Construction UI ──────────────────────────────────────────────
     def _build(self):
         # Tooltips lisibles (fond clair, texte noir) — sinon blanc sur blanc
         self.setStyleSheet(
@@ -458,8 +475,8 @@ class HdvTab(QWidget):
     def _load_prices(self):
         self._status.setText(f"Chargement des prix ({self._server.capitalize()})…")
         self._status.setVisible(True)
-        # Synchrone : la requête est rapide et c'est plus fiable que le thread
-        QTimer.singleShot(50, lambda: self._on_prices_loaded(api.get_prices(self._server)))
+        # Exécuter en arrière-plan pour ne pas bloquer le thread principal
+        _run_async(self, lambda: api.get_prices(self._server), self._on_prices_loaded)
 
     def _load_items(self):
         # liste d'items pour l'autocomplete (chargée une fois)

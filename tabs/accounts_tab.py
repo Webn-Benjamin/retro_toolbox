@@ -109,7 +109,8 @@ class AccountsTab(QWidget):
     # ── Construction ───────────────────────────────────────
 
     def _build(self):
-        root = QVBoxLayout(self)
+        self._root = QVBoxLayout(self)
+        root = self._root
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
@@ -136,7 +137,8 @@ class AccountsTab(QWidget):
         root.addWidget(self._notif_bar)
 
         # ── Barre d'onglets ────────────────────────────────
-        tbar = QFrame()
+        self._tbar = QFrame()
+        tbar = self._tbar
         tbar.setStyleSheet(
             f"QFrame{{background:{T.SURFACE};border-bottom:1px solid {T.BORDER};}}")
         tbl = QHBoxLayout(tbar); tbl.setContentsMargins(4,4,4,4); tbl.setSpacing(3)
@@ -242,6 +244,8 @@ class AccountsTab(QWidget):
         row2.addWidget(self._sadi_btn)
         row2.addStretch()
         mv.addLayout(row2)
+        mbar.setFixedHeight(72)
+        self._mbar = mbar
         root.addWidget(mbar)
 
         # ── Panneau config Farm Sadi (caché par défaut) ────
@@ -502,7 +506,74 @@ class AccountsTab(QWidget):
         root.setMinimumHeight(0); root.setMaximumHeight(16777215)
         root.adjustSize()
 
+    def set_compact_mode(self, compact: bool):
+        """Bascule le mode compact : déplace _chars hors du _stack."""
+        self._compact_mode = compact
+
+        pill_small = (
+            f"QPushButton{{background:{T.BG_DARK};color:{T.HINT};"
+            f"border:1px solid {T.BORDER};border-radius:10px;"
+            f"padding:1px 7px;font-size:8pt;font-weight:700;}}"
+            f"QPushButton:hover{{background:{T.BORDER};color:{T.TEXT};}}"
+        )
+        pill_normal = self._pill_base
+
+        if compact:
+            # Réduire les boutons farm
+            for btn in (self._farm_btn, self._move_btn, self._sadi_btn):
+                btn.setFixedHeight(22)
+                is_on = btn.isChecked()
+                if is_on and btn is self._farm_btn:
+                    pass  # garde son style on
+                btn.setStyleSheet(pill_small if not btn.isChecked()
+                                  else btn.styleSheet().replace("border-radius:14px", "border-radius:10px")
+                                                        .replace("padding:3px 12px", "padding:1px 7px")
+                                                        .replace("font-size:9pt", "font-size:8pt"))
+            self._mbar.setFixedHeight(50)
+            # Supprimer marges haut/bas de mbar en compact
+            self._mbar.layout().setContentsMargins(8, 2, 8, 2)
+            self._stack.removeWidget(self._chars)
+            self._tbar.hide()
+            self._stack.hide()
+            self._chars.setParent(self)
+            self._root.addWidget(self._chars)
+            n = max(1, len(self._chars._windows))
+            self._chars._scroll.setFixedHeight(min(n * 30, 400))
+            self._chars._compact = True
+            self._chars._hdr.hide()
+            self._chars._ftr.hide()
+            self._chars._btn_save_order.hide()
+            self._chars._prof_frame.hide()
+            self._chars.show()
+            from PySide6.QtWidgets import QApplication
+            QApplication.processEvents()
+            self._fit()
+            self._chars._render()
+        else:
+            # Remettre les boutons farm à leur taille normale
+            for btn in (self._farm_btn, self._move_btn, self._sadi_btn):
+                btn.setFixedHeight(28)
+            self._farm_btn.setStyleSheet(
+                self._pill_on_green if self._farm_btn.isChecked() else self._pill_base)
+            self._move_btn.setStyleSheet(
+                self._pill_on_blue if self._move_btn.isChecked() else self._pill_base)
+            self._sadi_btn.setStyleSheet(
+                self._pill_on_green if self._sadi_btn.isChecked() else self._pill_base)
+            self._mbar.setFixedHeight(72)
+            self._mbar.layout().setContentsMargins(8, 4, 8, 4)
+            self._root.removeWidget(self._chars)
+            self._chars.set_compact(False)
+            self._stack.insertWidget(0, self._chars)
+            self._stack.setCurrentIndex(0)
+            self._stack.show()
+            self._tbar.show()
+            self._fit()
+
     def sizeHint(self):
+        if getattr(self, "_compact_mode", False):
+            chars = getattr(self, "_chars", None)
+            n = max(1, len(chars._windows)) if chars else 1
+            return QSize(350, 50 + min(n * 30, 400))
         cur = self._stack.currentWidget()
         h   = cur.sizeHint().height() if cur else 300
         nh  = 36 if not self._notif_bar.isHidden() else 0

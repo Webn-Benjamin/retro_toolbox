@@ -1,42 +1,29 @@
-"""move_mode.py - Mode deplacement : clic gauche sur Dofus = personnage suivant."""
+"""move_mode.py - Mode deplacement : clic gauche sur Dofus = personnage suivant.
+
+Implémentation par polling (GetAsyncKeyState) au lieu d'un hook WH_MOUSE_LL.
+Un hook bas niveau global laisse un hook orphelin si le thread est tué à la
+fermeture, ce qui freeze la souris pendant plusieurs secondes sous Windows.
+Le polling via QTimer évite entièrement ce problème.
+"""
 from __future__ import annotations
 import sys as _move_sys
-import ctypes
-import ctypes.wintypes as wt
 import threading
 import time
 from typing import Callable
 import re as _mre
+
 _PTN_SESSION = _mre.compile(r'^(.+?)\s*[-\u2013]\s*Dofus', _mre.IGNORECASE)
 _PTN_LOADING = _mre.compile(r'^Dofus\s*Retro\b', _mre.IGNORECASE)
 
-
-WH_MOUSE_LL    = 14
-WM_LBUTTONDOWN = 0x0201
-LLMHF_INJECTED = 0x00000001
-
-
-class MouseHookData(ctypes.Structure):
-    _fields_ = [
-        ("pt",          wt.POINT),
-        ("mouseData",   wt.DWORD),
-        ("flags",       wt.DWORD),
-        ("time",        wt.DWORD),
-        ("dwExtraInfo", ctypes.POINTER(ctypes.c_ulong)),
-    ]
+# Intervalle de polling en ms — assez court pour être réactif
+_POLL_MS = 30
+_COOLDOWN_MS = 96
 
 
 class SwitchModeCtrl:
-    """Mode déplacement — Windows uniquement (hook souris ctypes)."""
-    _SUPPORTED = _move_sys.platform == "win32"
+    """Mode déplacement — polling GetAsyncKeyState, sans hook bas niveau."""
 
-    """
-    Mode deplacement : hook souris bas niveau (WH_MOUSE_LL).
-    A chaque clic gauche sur une fenetre Dofus, appelle cycle_fn
-    apres un court delai.
-    """
-    CYCLE_DELAY_MS = 95
-    COOLDOWN_MS    = 96
+    _SUPPORTED = _move_sys.platform == "win32"
 
     def __init__(self, cycle_fn: Callable,
                  on_state_change: Callable[[bool], None] | None = None):
@@ -44,13 +31,29 @@ class SwitchModeCtrl:
         self._on_state_change = on_state_change
         self._active          = False
         self._last_ts         = 0.0
-        self._hook            = None
-        self._proc            = None
-        self._thread          = threading.Thread(
-            target=self._monitor_loop, daemon=True, name="MoveModeHook")
-        self._thread.start()
+        self._prev_down       = False
+        self._timer           = None  # QTimer, créé au premier toggle
+
+    def _ensure_timer(self):
+        """Crée le QTimer la première fois (doit être fait dans le thread Qt)."""
+        if self._timer is not None:
+            return
+        if _move_sys.platform != "win32":
+            return
+        from PySide6.QtCore import QTimer
+        self._timer = QTimer()
+        self._timer.setInterval(_POLL_MS)
+        self._timer.timeout.connect(self._poll)
+        self._timer.start()
+
+    def stop(self):
+        """Arrête le polling proprement — appelé depuis le thread Qt."""
+        if self._timer is not None:
+            self._timer.stop()
+            self._timer = None
 
     def toggle(self) -> bool:
+        self._ensure_timer()
         self._active = not self._active
         if self._on_state_change:
             self._on_state_change(self._active)
@@ -60,58 +63,55 @@ class SwitchModeCtrl:
     def is_active(self) -> bool:
         return self._active
 
-    def _is_game_hwnd(self, hwnd: int) -> bool:
-        import sys
-        if sys.platform != 'win32': return False
+    def _poll(self):
+        """Appelé toutes les 30ms par QTimer depuis le thread Qt principal."""
+        if not self._active:
+            self._prev_down = False
+            return
         try:
-            title_buf = ctypes.create_unicode_buffer(256)
-            ctypes.windll.user32.GetWindowTextW(hwnd, title_buf, 256)
-            title = title_buf.value
-            return bool(_PTN_SESSION.match(title) or _PTN_LOADING.match(title))
+            import ctypes
+            # VK_LBUTTON = 0x01
+            state = ctypes.windll.user32.GetAsyncKeyState(0x01)
+            down  = bool(state & 0x8000)
+
+            # Détecter le front montant (appui)
+            if down and not self._prev_down:
+                self._on_click()
+
+            self._prev_down = down
         except Exception:
-            return False
+            pass
 
-    def _monitor_loop(self):
-        import sys
-        if sys.platform != "win32":
-            return  # Mode déplacement non supporté sur macOS (hook souris Windows uniquement)
+    def _on_click(self):
+        """Vérifie si le clic est sur une fenêtre Dofus, puis appelle cycle_fn."""
+        try:
+            import ctypes
+            import ctypes.wintypes as wt
 
-        LowLevelMouseProc = ctypes.WINFUNCTYPE(
-            ctypes.c_int, ctypes.c_int, wt.WPARAM,
-            ctypes.POINTER(MouseHookData),
-        )
+            # Position curseur
+            pt = wt.POINT()
+            ctypes.windll.user32.GetCursorPos(ctypes.byref(pt))
 
-        def _callback(nCode, wParam, lParam):
-            if nCode >= 0 and wParam == WM_LBUTTONDOWN:
-                if not (lParam.contents.flags & LLMHF_INJECTED):
-                    if self._active:
-                        try:
-                            pt = lParam.contents.pt
-                            hwnd_under = ctypes.windll.user32.WindowFromPoint(pt)
-                            # Remonter a la fenetre racine
-                            hwnd_root = ctypes.windll.user32.GetAncestor(hwnd_under, 2)
-                            if self._is_game_hwnd(hwnd_root):
-                                now = time.monotonic()
-                                if now - self._last_ts >= (self.COOLDOWN_MS / 1000.0):
-                                    self._last_ts = now
-                                    threading.Timer(
-                                        self.CYCLE_DELAY_MS / 1000.0,
-                                        self._cycle_fn
-                                    ).start()
-                        except Exception:
-                            pass
-            return ctypes.windll.user32.CallNextHookEx(
-                self._hook, nCode, wParam, lParam)
+            # Fenêtre sous le curseur
+            hwnd_under = ctypes.windll.user32.WindowFromPoint(pt)
+            hwnd_root  = ctypes.windll.user32.GetAncestor(hwnd_under, 2)
 
-        self._proc = LowLevelMouseProc(_callback)
-        self._hook = ctypes.windll.user32.SetWindowsHookExW(
-            WH_MOUSE_LL, self._proc, None, 0)
+            # Titre de la fenêtre
+            buf = ctypes.create_unicode_buffer(256)
+            ctypes.windll.user32.GetWindowTextW(hwnd_root, buf, 256)
+            title = buf.value
 
-        msg = wt.MSG()
-        while ctypes.windll.user32.GetMessageW(ctypes.byref(msg), None, 0, 0) > 0:
-            ctypes.windll.user32.TranslateMessage(ctypes.byref(msg))
-            ctypes.windll.user32.DispatchMessageW(ctypes.byref(msg))
+            if not (_PTN_SESSION.match(title) or _PTN_LOADING.match(title)):
+                return
 
-        if self._hook:
-            ctypes.windll.user32.UnhookWindowsHookEx(self._hook)
-            self._hook = None
+            # Cooldown
+            now = time.monotonic()
+            if now - self._last_ts < _COOLDOWN_MS / 1000.0:
+                return
+            self._last_ts = now
+
+            # Déclencher après 95ms comme avant
+            threading.Timer(0.095, self._cycle_fn).start()
+
+        except Exception:
+            pass
