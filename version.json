@@ -1,0 +1,5 @@
+{
+  "version": "2.1",
+  "url": "https://retro-toolbox.fr/retro_toolbox_app.exe",
+  "notes": "- Au lancement, aucun profil n'est sélectionné par défaut — c'est toi qui choisis\n- Sélectionner un profil réordonne les fenêtres instantanément dans la barre des tâches\n- Les fenêtres exclues du cycle ne reçoivent plus jamais le focus automatique"
+}

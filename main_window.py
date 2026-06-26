@@ -1,0 +1,904 @@
+"""
+main_window.py — Fenêtre principale PySide6 de Retro Toolbox.
+"""
+
+from PySide6.QtWidgets import (
+    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
+    QPushButton, QLabel, QFrame, QFileDialog, QSizePolicy, QStackedWidget
+)
+from PySide6.QtCore import Qt, QTimer, QSize, Signal
+from PySide6.QtGui import QIcon
+from pathlib import Path
+
+import model, theme
+
+class _FitStack(QStackedWidget):
+    """QStackedWidget qui expose uniquement la taille du widget actif."""
+    def sizeHint(self):
+        w = self.currentWidget()
+        return w.sizeHint() if w else super().sizeHint()
+
+    def minimumSizeHint(self):
+        w = self.currentWidget()
+        return w.minimumSizeHint() if w else super().minimumSizeHint()
+from tabs.timer_tab      import TimerTab
+from tabs.challenges_tab import ChallengesTab
+from tabs.runes_tab      import RunesTab
+from tabs.settings_tab   import SettingsTab
+from tabs.about_tab      import AboutTab
+from tabs.craft_tab        import CraftTab
+from tabs.session_tab      import SessionTab
+from tabs.calculators_tab  import CalculatorsTab
+from tabs.todo_tab       import TodoTab
+from tabs.overlay_tab    import OverlayTab
+from tabs.dashboard_tab  import DashboardTab
+from tabs.accounts_tab   import AccountsTab
+from tabs.hdv_tab import HdvTab
+
+class NavButton(QPushButton):
+    """Bouton de navigation bas."""
+
+    def __init__(self, icon: str, label: str, parent=None):
+        super().__init__(parent)
+        self.setCheckable(True)
+        self.setObjectName("nav_btn")
+        self.setFixedHeight(56)
+        self._icon_txt  = icon
+        self._label_txt = label
+        self.setText(f"{icon}\n{label}")
+        self.setStyleSheet(f"""
+            QPushButton {{
+                background: {theme.BG_DARK};
+                color: {theme.HINT};
+                border: none;
+                font-size: 9pt;
+                font-weight: bold;
+                padding: 4px 2px;
+            }}
+            QPushButton:checked {{
+                background: {theme.SURFACE};
+                color: {theme.ORANGE};
+                border-top: 2px solid {theme.ORANGE};
+            }}
+            QPushButton:hover:!checked {{
+                color: {theme.SUBTEXT};
+            }}
+        """)
+
+class WelcomeDialog(QWidget):
+    """Fenêtre de bienvenue affichée au premier lancement."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent, Qt.WindowType.Window | Qt.WindowType.WindowStaysOnTopHint)
+        self.setWindowTitle("Retro Toolbox — Premier lancement")
+        self.setFixedWidth(400)
+        self._chosen_folder = None
+        import sys
+        def _res(rel):
+            if getattr(sys, 'frozen', False):
+                return str(Path(sys._MEIPASS) / rel)
+            return str(Path(__file__).parent / rel)
+        from PySide6.QtGui import QIcon
+        self.setWindowIcon(QIcon(_res("retro_toolbox.ico")))
+        self.setStyleSheet(f"""
+            QWidget {{ background:{theme.BG}; color:{theme.TEXT};
+                       font-family:'Segoe UI'; }}
+            QFrame#card {{ background:{theme.SURFACE};
+                           border:1px solid {theme.BORDER};
+                           border-radius:6px; }}
+        """)
+        self._build()
+
+    def _build(self):
+        lay = QVBoxLayout(self)
+        lay.setContentsMargins(24, 28, 24, 24)
+        lay.setSpacing(16)
+
+        # Logo + titre
+        title = QLabel("🎮 Retro Toolbox")
+        title.setStyleSheet(
+            f"font-size:20pt;font-weight:bold;color:{theme.TEXT};"
+            f"background:transparent;")
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lay.addWidget(title)
+
+        sub = QLabel("Premier lancement — Configuration")
+        sub.setStyleSheet(
+            f"font-size:10pt;color:{theme.HINT};background:transparent;")
+        sub.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lay.addWidget(sub)
+
+        # Séparateur
+        sep = QFrame(); sep.setFrameShape(QFrame.Shape.HLine)
+        sep.setStyleSheet(f"color:{theme.BORDER};")
+        lay.addWidget(sep)
+
+        # Explication
+        card = QFrame(); card.setObjectName("card")
+        card_lay = QVBoxLayout(card)
+        card_lay.setContentsMargins(16, 14, 16, 14)
+        card_lay.setSpacing(10)
+
+        info = QLabel(
+            "Retro Toolbox a besoin d'un dossier pour sauvegarder "
+            "tes timers, statistiques et préférences.")
+        info.setWordWrap(True)
+        info.setStyleSheet(f"color:{theme.TEXT};font-size:10pt;background:transparent;")
+        card_lay.addWidget(info)
+
+        steps = QLabel(
+            "① Clique sur <b>Choisir un dossier</b><br>"
+            "② Sélectionne ou crée un dossier sur ton Bureau ou tes Documents<br>"
+            "③ Retro Toolbox y créera automatiquement son fichier de données")
+        steps.setWordWrap(True)
+        steps.setStyleSheet(
+            f"color:{theme.SUBTEXT};font-size:9pt;"
+            f"background:transparent;")
+        steps.setTextFormat(Qt.TextFormat.RichText)
+        card_lay.addWidget(steps)
+
+        lay.addWidget(card)
+
+        # Dossier sélectionné
+        self._folder_lbl = QLabel("Aucun dossier sélectionné")
+        self._folder_lbl.setWordWrap(True)
+        self._folder_lbl.setStyleSheet(
+            f"color:{theme.HINT};font-size:8pt;background:transparent;"
+            f"font-style:italic;")
+        self._folder_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lay.addWidget(self._folder_lbl)
+
+        # Boutons
+        btn_choose = QPushButton("📁  Choisir un dossier")
+        btn_choose.setStyleSheet(f"""
+            QPushButton {{
+                background:{theme.BG_DARK};color:{theme.TEXT};
+                border:1px solid {theme.BORDER};border-radius:4px;
+                padding:10px 20px;font-size:10pt;font-weight:bold;
+            }}
+            QPushButton:hover {{
+                border-color:{theme.ORANGE};color:{theme.ORANGE};
+            }}
+        """)
+        btn_choose.clicked.connect(self._choose_folder)
+        lay.addWidget(btn_choose)
+
+        self._btn_start = QPushButton("✔  Démarrer Retro Toolbox")
+        self._btn_start.setEnabled(False)
+        self._btn_start.setStyleSheet(f"""
+            QPushButton {{
+                background:{theme.ORANGE};color:white;
+                border:none;border-radius:4px;
+                padding:12px 20px;font-size:11pt;font-weight:bold;
+            }}
+            QPushButton:hover {{ background:{theme.ORANGE_L}; }}
+            QPushButton:disabled {{
+                background:{theme.BG_DARK};color:{theme.HINT};
+            }}
+        """)
+        self._btn_start.clicked.connect(self._confirm)
+        lay.addWidget(self._btn_start)
+
+        note = QLabel("💡 Tu pourras changer ce dossier plus tard dans Paramètres.")
+        note.setWordWrap(True)
+        note.setStyleSheet(f"color:{theme.HINT};font-size:8pt;background:transparent;")
+        note.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lay.addWidget(note)
+
+        self.adjustSize()
+
+    def _choose_folder(self):
+        from PySide6.QtWidgets import QFileDialog
+        folder = QFileDialog.getExistingDirectory(
+            self, "Choisir le dossier de données", str(Path.home()))
+        if folder:
+            self._chosen_folder = folder
+            # Afficher le chemin de façon courte
+            short = folder if len(folder) < 45 else "..." + folder[-42:]
+            self._folder_lbl.setText(f"📁 {short}")
+            self._folder_lbl.setStyleSheet(
+                f"color:{theme.ORANGE};font-size:8pt;"
+                f"background:transparent;font-style:normal;")
+            self._btn_start.setEnabled(True)
+
+    def _confirm(self):
+        if self._chosen_folder:
+            self.close()
+
+    def get_folder(self):
+        return self._chosen_folder
+
+class MainWindow(QMainWindow):
+    _trigger_update = Signal()
+    def closeEvent(self, e):
+        pos = self.pos()
+        model.save_config({"window_x": pos.x(), "window_y": pos.y()})
+        # Flush la sauvegarde différée du Session (timers farm/donjon/captures)
+        for tab in self._tabs:
+            if hasattr(tab, "_flush_save"):
+                tab._flush_save()
+            # Couper proprement le mode Déplacement (timer souris ou hook
+            # clavier) pour ne jamais laisser un hook orphelin à la fermeture.
+            if hasattr(tab, "_move_mgr"):
+                try:
+                    tab._move_mgr.stop()
+                except Exception:
+                    pass
+        super().closeEvent(e)
+
+    def _check_focus_assist(self):
+        """Avertit si le mode Ne pas déranger Windows risque de masquer
+        les notifications de jeu (tour, échange...) lues par l'app."""
+        try:
+            from os_bridge import focus_assist
+        except Exception:
+            return
+        if not focus_assist.is_dnd_active():
+            return
+        cfg = model.load_config()
+        if cfg.get("skip_dnd_warning", False):
+            return
+        self._show_dnd_warning()
+
+    def _show_dnd_warning(self):
+        from PySide6.QtWidgets import QDialog, QCheckBox
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Mode Ne pas déranger actif")
+        dlg.setFixedWidth(320)
+        dlg.setStyleSheet(
+            f"QDialog{{background:{theme.BG};color:{theme.TEXT};}}"
+            f"QLabel{{background:transparent;color:{theme.TEXT};}}"
+            f"QCheckBox{{background:transparent;color:{theme.SUBTEXT};font-size:8pt;}}"
+            f"QPushButton{{background:{theme.BG_DARK};color:{theme.SUBTEXT};"
+            f"border:1px solid {theme.BORDER};border-radius:6px;"
+            f"padding:6px 14px;font-size:9pt;font-weight:600;}}"
+            f"QPushButton:hover{{background:{theme.BORDER};color:{theme.TEXT};}}")
+
+        lay = QVBoxLayout(dlg)
+        lay.setContentsMargins(16, 14, 16, 14); lay.setSpacing(12)
+
+        title = QLabel("🔕  Notifications Windows désactivées")
+        title.setStyleSheet(
+            f"font-size:10pt;font-weight:700;color:{theme.TEXT};background:transparent;")
+        lay.addWidget(title)
+
+        msg = QLabel(
+            "Le mode « Ne pas déranger » ou l'Assistant de concentration "
+            "est actif sur Windows. Les alertes de tour, d'échange et "
+            "autres notifications de jeu risquent de ne pas s'afficher."
+        )
+        msg.setWordWrap(True)
+        msg.setStyleSheet(f"font-size:9pt;color:{theme.SUBTEXT};background:transparent;")
+        lay.addWidget(msg)
+
+        chk = QCheckBox("Ne plus afficher ce message")
+        lay.addWidget(chk)
+
+        btn_row = QHBoxLayout(); btn_row.setSpacing(8)
+        btn_later = QPushButton("Plus tard")
+        btn_later.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_later.clicked.connect(dlg.reject)
+
+        btn_open = QPushButton("⚙  Ouvrir les paramètres")
+        btn_open.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_open.setStyleSheet(
+            f"QPushButton{{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,"
+            f"stop:0 {theme.GRAD1},stop:1 {theme.GRAD2});"
+            f"color:white;border:none;border-radius:6px;"
+            f"padding:6px 14px;font-size:9pt;font-weight:700;}}")
+
+        def _open_settings():
+            from os_bridge import focus_assist
+            focus_assist.open_notification_settings()
+            dlg.accept()
+        btn_open.clicked.connect(_open_settings)
+
+        btn_row.addWidget(btn_later)
+        btn_row.addWidget(btn_open)
+        lay.addLayout(btn_row)
+
+        dlg.exec()
+
+        if chk.isChecked():
+            model.save_config({"skip_dnd_warning": True})
+
+    def enterEvent(self, event):
+        if self._compact_mode:
+            self._animate_titlebar(show=True)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        if self._compact_mode:
+            self._animate_titlebar(show=False)
+        super().leaveEvent(event)
+
+    def _animate_titlebar(self, show: bool):
+        from PySide6.QtCore import QPropertyAnimation, QEasingCurve, QParallelAnimationGroup
+        at = self._tabs[0]
+        n = max(1, len(at._chars._windows))
+        scroll_h = min(n * 30, 400)
+        base_h = 50 + scroll_h
+        full_h = 46 + base_h
+
+        if hasattr(self, "_tb_anim_group") and self._tb_anim_group.state().value == 2:
+            self._tb_anim_group.stop()
+
+        self.setMinimumHeight(0)
+        self.setMaximumHeight(16777215)
+
+        if show:
+            self._title_bar.show()
+            # Partir de minimumHeight=0 : la titlebar commence compressée
+            self._title_bar.setMinimumHeight(0)
+            self._title_bar.setMaximumHeight(0)
+            self._title_bar.setFixedHeight(46)
+
+        # Animer minimumHeight ET maximumHeight de la titlebar : 0→46 (pousse le contenu vers le bas)
+        tb_min = QPropertyAnimation(self._title_bar, b"minimumHeight")
+        tb_max = QPropertyAnimation(self._title_bar, b"maximumHeight")
+        for a, s, e in [
+            (tb_min, 0 if show else 46, 46 if show else 0),
+            (tb_max, 0 if show else 46, 46 if show else 0),
+        ]:
+            a.setDuration(200)
+            a.setEasingCurve(QEasingCurve.Type.OutCubic)
+            a.setStartValue(s)
+            a.setEndValue(e)
+
+        # Animer la hauteur de la fenêtre en même temps
+        win_min = QPropertyAnimation(self, b"minimumHeight")
+        win_max = QPropertyAnimation(self, b"maximumHeight")
+        for a in (win_min, win_max):
+            a.setDuration(200)
+            a.setEasingCurve(QEasingCurve.Type.OutCubic)
+            a.setStartValue(self.height())
+            a.setEndValue(full_h if show else base_h)
+
+        group = QParallelAnimationGroup()
+        for a in (tb_min, tb_max, win_min, win_max):
+            group.addAnimation(a)
+
+        def _on_done():
+            self.setMinimumHeight(0)
+            self.setMaximumHeight(16777215)
+            if not show:
+                self._title_bar.hide()
+                self._title_bar.setMinimumHeight(0)
+                self._title_bar.setMaximumHeight(16777215)
+                self.setFixedHeight(base_h)
+            else:
+                self._title_bar.setMinimumHeight(0)
+                self._title_bar.setMaximumHeight(16777215)
+                self._title_bar.setFixedHeight(46)
+                self.setFixedHeight(full_h)
+
+        group.finished.connect(_on_done)
+        self._tb_anim_group = group
+        group.start()
+
+    def _toggle_compact(self):
+        self._compact_mode = not self._compact_mode
+        c = self._compact_mode
+        self._btn_compact.setChecked(c)
+        self._btn_compact.setToolTip("Quitter le mode compact" if c else "Mode compact")
+
+        at = self._tabs[0]
+        # Navbar du bas
+        central_lay = self.centralWidget().layout()
+        for i in range(central_lay.count()):
+            w = central_lay.itemAt(i).widget()
+            if w and w.objectName() == "navbar":
+                w.setVisible(not c)
+
+        at.set_compact_mode(c)
+        if c:
+            self._title_bar.hide()
+            at2 = self._tabs[0]
+            n = max(1, len(at2._chars._windows))
+            self.setFixedHeight(50 + min(n * 30, 400))
+        else:
+            self._title_bar.show()
+
+    def _show_update(self):
+        import threading, datetime, sys, os, subprocess
+        from PySide6.QtWidgets import (
+            QDialog, QVBoxLayout, QLabel, QProgressBar,
+            QPushButton, QHBoxLayout, QApplication)
+        from PySide6.QtCore import Qt as _Qt, QMetaObject, Q_ARG
+
+        latest, url, notes, sha256 = self._update_info
+
+        # ── Dialog ──────────────────────────────────────
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Mise à jour requise")
+        dlg.setFixedWidth(340)
+        dlg.setStyleSheet(f"QDialog{{background:{theme.BG};}}")
+        dlg.setWindowFlags(
+            dlg.windowFlags() & ~_Qt.WindowType.WindowCloseButtonHint)
+        dlg.closeEvent = lambda e: e.ignore()
+        dlg.reject = lambda: None
+        lay = QVBoxLayout(dlg)
+        lay.setContentsMargins(18, 16, 18, 16); lay.setSpacing(10)
+
+        def lbl(text, color=theme.TEXT, size="9pt", bold=False, italic=False):
+            l = QLabel(text)
+            ss = f"background:transparent;font-size:{size};"
+            if color:  ss += f"color:{color};"
+            if bold:   ss += "font-weight:bold;"
+            if italic: ss += "font-style:italic;"
+            l.setStyleSheet(ss)
+            return l
+
+        lay.addWidget(lbl(f"🎮 Version {latest} disponible !", theme.TEXT, "10pt", bold=True))
+        lay.addWidget(lbl(
+            "Cette mise à jour est obligatoire pour continuer à utiliser Retro Toolbox.",
+            theme.HINT, "8pt", italic=True))
+        if notes:
+            n = lbl(notes, theme.SUBTEXT, "9pt", italic=True)
+            n.setWordWrap(True); lay.addWidget(n)
+
+        bar = QProgressBar()
+        bar.setRange(0, 100); bar.setValue(0); bar.setFixedHeight(16)
+        bar.setStyleSheet(
+            f"QProgressBar{{background:{theme.BG_DARK};border:none;}}"
+            f"QProgressBar::chunk{{background:{theme.ORANGE};}}")
+        lay.addWidget(bar)
+
+        status = lbl("Préparation du téléchargement…", theme.HINT, "8pt", italic=True)
+        lay.addWidget(status)
+
+        btn_retry = QPushButton("⬇  Réessayer")
+        btn_retry.setStyleSheet(
+            f"QPushButton{{background:{theme.ORANGE};color:white;border:none;"
+            f"padding:7px 14px;font-weight:bold;font-size:9pt;}}"
+            f"QPushButton:hover{{background:{theme.ORANGE_L};}}")
+        btn_retry.setVisible(False)
+
+        btn_close_app = QPushButton("✕  Fermer l'application")
+        btn_close_app.setStyleSheet(
+            f"QPushButton{{background:{theme.BG_DARK};color:{theme.SUBTEXT};"
+            f"border:1px solid {theme.BORDER};padding:7px 12px;font-size:9pt;}}"
+            f"QPushButton:hover{{background:{theme.BORDER};color:{theme.TEXT};}}")
+        btn_close_app.clicked.connect(lambda: os._exit(0))
+
+        btn_row2 = QHBoxLayout(); btn_row2.setSpacing(6)
+        btn_row2.addWidget(btn_retry)
+        btn_row2.addWidget(btn_close_app)
+        lay.addLayout(btn_row2)
+
+        # ── Thread de téléchargement ────────────────────
+        # On utilise threading.Thread (pas QThread) et on met à jour
+        # l'UI via processEvents() — simple et fiable avec exec().
+        _state = {"done": False, "success": False, "error": ""}
+
+        def _run():
+            try:
+                from updater import download_update
+                _last = [-1]
+                def _on_progress(p):
+                    pct = int(p * 100)
+                    if pct != _last[0]:
+                        _last[0] = pct
+                        # Mise à jour barre via invokeMethod (thread-safe)
+                        QMetaObject.invokeMethod(
+                            bar, "setValue",
+                            _Qt.ConnectionType.QueuedConnection,
+                            Q_ARG(int, pct))
+                download_update(url, sha256=sha256, on_progress=_on_progress)
+                _state["success"] = True
+            except Exception as ex:
+                import traceback
+                _state["error"] = str(ex)
+            finally:
+                _state["done"] = True
+
+        def start_dl():
+            btn_retry.setVisible(False)
+            bar.setValue(0)
+            status.setText("Téléchargement en cours…")
+            _state["done"] = False
+            _state["success"] = False
+            _state["error"] = ""
+            t = threading.Thread(target=_run, daemon=True)
+            t.start()
+
+        btn_retry.clicked.connect(start_dl)
+
+        # ── Guard unique contre les doubles appels ──────
+        _restart_done = [False]
+
+        # ── Détection fin de téléchargement ─────────────
+        def _check():
+            if not _state["done"]:
+                QTimer.singleShot(300, _check)
+                return
+            if _restart_done[0]:
+                return
+            if _state["success"]:
+                _restart_done[0] = True
+                status.setText("✅ Redémarrage…")
+                def _launch_restart():
+                    import threading as _th
+                    _th.Thread(target=_do_restart, daemon=False).start()
+                QTimer.singleShot(800, _launch_restart)
+            else:
+                status.setText(f"❌ Erreur : {_state['error']}")
+                btn_retry.setVisible(True)
+
+        def _do_restart():
+            # Le launcher gère le remplacement au prochain démarrage.
+            # On lance juste le launcher et on quitte proprement.
+            from updater import apply_pending_update
+            apply_pending_update()
+            # os._exit() depuis n'importe quel thread — fiable contrairement
+            # à QApplication.quit() qui doit être sur le thread Qt principal
+            import os as _os
+            _os._exit(0)
+
+        # Un seul démarrage
+        def _start_then_check():
+            start_dl()
+            QTimer.singleShot(500, _check)
+        QTimer.singleShot(300, _start_then_check)
+        dlg.exec()
+    WIDTH = 350
+
+    def __init__(self):
+        super().__init__()
+        self._trigger_update.connect(self._show_update)
+        self.setWindowTitle("Retro Toolbox")
+        self.setFixedWidth(self.WIDTH)
+        self.setWindowFlags(
+            Qt.WindowType.Window |
+            Qt.WindowType.WindowStaysOnTopHint
+        )
+
+        # Icône dans toute l'application
+        import sys
+        def _res(rel):
+            if getattr(sys, 'frozen', False):
+                return Path(sys._MEIPASS) / rel
+            return Path(__file__).parent / rel
+        icon = QIcon(str(_res("retro_toolbox.ico")))
+        self.setWindowIcon(icon)
+        from PySide6.QtWidgets import QApplication
+        QApplication.setWindowIcon(icon)
+
+        # Données
+        self.data_file = self._resolve_data_file()
+        self.maps = model.load_maps(self.data_file)
+
+        self._build_ui()
+        self._switch_tab(0)
+
+        # Stats ticker
+        self._stats_timer = QTimer(self)
+        self._stats_timer.timeout.connect(self._refresh_stats)
+        self._stats_timer.start(1000)
+
+        # Vérifier le mode Ne pas déranger / Assistant de concentration Windows
+        # (décalé pour ne pas retarder l'affichage de la fenêtre)
+        QTimer.singleShot(800, self._check_focus_assist)
+
+    # ── Données ───────────────────────────────────────────
+
+    def _resolve_data_file(self):
+        path = model.get_data_file_path()
+        if path:
+            return path
+        # Afficher la belle fenêtre de bienvenue
+        dlg = WelcomeDialog()
+        dlg.show()
+        from PySide6.QtWidgets import QApplication
+        # Attendre que l'utilisateur choisisse
+        while dlg.isVisible():
+            QApplication.processEvents()
+        folder = dlg.get_folder() or str(Path.home())
+        json_path = Path(folder) / 'dofus_timers.json'
+        model.set_data_file_path(json_path)
+        return json_path
+
+    def _save(self):
+        try:
+            model.save_maps(self.maps, self.data_file)
+        except Exception as e:
+            print(f"Erreur sauvegarde: {e}")
+
+    # ── UI ────────────────────────────────────────────────
+
+    def _build_ui(self):
+        central = QWidget()
+        self.setCentralWidget(central)
+        main_lay = QVBoxLayout(central)
+        main_lay.setContentsMargins(0, 0, 0, 0)
+        main_lay.setSpacing(0)
+
+        # Titlebar
+        self._title_bar = QFrame()
+        title_bar = self._title_bar
+        title_bar.setFixedHeight(46)
+        title_bar.setStyleSheet(
+            f"QFrame{{background:qlineargradient(x1:0,y1:0,x2:1,y2:0,"
+            f"stop:0 {theme.GRAD1},stop:1 {theme.GRAD2});"
+            f"border:none;}}"
+            f"QFrame QLabel{{background:transparent;color:white;}}"
+            f"QFrame QPushButton{{border:none;}}")
+        tb_lay = QHBoxLayout(title_bar)
+        tb_lay.setContentsMargins(14, 0, 12, 0); tb_lay.setSpacing(8)
+
+        icon_lbl = QLabel("🎮")
+        icon_lbl.setFixedSize(28, 28)
+        icon_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        icon_lbl.setStyleSheet(
+            "background:rgba(255,255,255,51);border-radius:7px;"
+            "font-size:13pt;color:white;")
+        tb_lay.addWidget(icon_lbl)
+
+        lbl = QLabel("Retro Toolbox")
+        lbl.setStyleSheet("font-size:12pt;font-weight:bold;color:white;"
+                          "background:transparent;")
+        tb_lay.addWidget(lbl)
+        tb_lay.addStretch()
+
+        btn_discord = QPushButton("💬 Discord")
+        btn_discord.setFixedHeight(28)
+        btn_discord.setStyleSheet(
+            "QPushButton{background:rgba(255,255,255,51);color:white;"
+            "border:1px solid rgba(255,255,255,89);border-radius:14px;"
+            "padding:3px 12px;font-size:9pt;font-weight:700;}"
+            "QPushButton:hover{background:rgba(255,255,255,76);}")
+        btn_discord.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_discord.setToolTip("Rejoindre le serveur Discord Retro Toolbox")
+        import webbrowser as _wb
+        btn_discord.clicked.connect(
+            lambda: _wb.open("https://discord.com/invite/Md8RJXdtQZ"))
+        tb_lay.addWidget(btn_discord)
+
+        self._compact_mode = False
+        self._btn_compact = QPushButton("⛶")
+        self._btn_compact.setFixedSize(28, 28)
+        self._btn_compact.setCheckable(True)
+        self._btn_compact.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_compact.setToolTip("Mode compact — affiche uniquement les fenêtres Dofus Rétro")
+        self._btn_compact.setStyleSheet(
+            "QPushButton{background:rgba(255,255,255,51);color:white;"
+            "border:1px solid rgba(255,255,255,89);border-radius:7px;"
+            "font-size:11pt;font-weight:700;padding:0;}"
+            "QPushButton:hover{background:rgba(255,255,255,76);}"
+            "QPushButton:checked{background:rgba(255,255,255,110);}")
+        self._btn_compact.clicked.connect(self._toggle_compact)
+        tb_lay.addWidget(self._btn_compact)
+        main_lay.addWidget(title_bar)
+
+        # Callbacks timer
+        callbacks = {
+            'on_kill':         self._on_kill,
+            'on_bambouto':     self._on_bambouto,
+            'on_reset_group':  self._on_reset_group,
+            'on_add_map':      self._on_add_map,
+            'on_delete_map':   self._on_delete_map,
+            'on_reset_all':    self._on_reset_all,
+            'on_clear_stats':  self._on_clear_stats,
+            'on_rename_map':   self._on_rename_map,
+        }
+
+        # Onglets
+        self._tabs = [
+            AccountsTab(),                    # 0
+            DashboardTab(),                   # 1
+            RunesTab(),                       # 2
+            TodoTab(),                        # 3
+            TimerTab(self.maps, callbacks),   # 4
+            ChallengesTab(),                  # 5
+            OverlayTab(),                     # 6
+            SettingsTab(str(self.data_file), self._on_change_folder),  # 7
+            CraftTab(),                       # 8
+            AboutTab(),                       # 9
+            SessionTab(),                     # 10
+            CalculatorsTab(),                 # 11
+            HdvTab(),                         # 12 
+        ]
+
+        # Stack — QStackedWidget expose uniquement le widget actif pour sizeHint
+        self._stack = _FitStack()
+        self._stack.setContentsMargins(0, 0, 0, 0)
+        self._stack.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        for tab in self._tabs:
+            tab.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Maximum)
+            self._stack.addWidget(tab)
+        main_lay.addWidget(self._stack)
+
+        # Navbar bas
+        navbar = QWidget()
+        navbar.setObjectName("navbar")
+        navbar.setFixedHeight(60)
+        navbar.setStyleSheet(f"QWidget{{background:{theme.SURFACE};border-top:1px solid {theme.BORDER};}}")
+        nb_lay = QHBoxLayout(navbar)
+        nb_lay.setContentsMargins(0, 0, 0, 0)
+        nb_lay.setSpacing(0)
+
+        # (icône, label, index dans self._tabs)
+        nav_items = [
+            ("👥", "Comptes", 0), ("👤", "Dashboard", 1),
+            ("💰", "Prix HDV", 12), ("📝", "Notes", 3),
+        ]
+        self._nav_btns = []
+        self._nav_index = []   # index de tab pour chaque bouton de la navbar
+        for icon, label, tab_idx in nav_items:
+            btn = NavButton(icon, label)
+            btn.clicked.connect(lambda _, idx=tab_idx: self._switch_tab(idx))
+            nb_lay.addWidget(btn)
+            self._nav_btns.append(btn)
+            self._nav_index.append(tab_idx)
+
+        # Bouton ⋯ pour les onglets secondaires
+        self._more_btn = NavButton("⋯", "Plus")
+        self._more_btn.clicked.connect(self._toggle_more_menu)
+        nb_lay.addWidget(self._more_btn)
+        self._nav_btns.append(self._more_btn)
+
+        main_lay.addWidget(navbar)
+        self._stack.setCurrentIndex(0)
+        for i, btn in enumerate(self._nav_btns):
+            btn.setChecked(i == 0)
+
+        # Menu popup pour onglets secondaires
+        self._more_menu = QFrame(self)
+        self._more_menu.setObjectName("more_menu")
+        self._more_menu.setWindowFlags(Qt.WindowType.Popup)
+        self._more_menu.setStyleSheet(
+            f"QFrame#more_menu{{background:{theme.SURFACE};border:1px solid {theme.BORDER};"
+            f"border-radius:4px;}}")
+        mm_lay = QVBoxLayout(self._more_menu)
+        mm_lay.setContentsMargins(6, 6, 6, 6); mm_lay.setSpacing(4)
+
+        for idx, (icon, label) in [(2, ("💎", "Runes")), (4, ("⏱", "Timer")), (5, ("⚔", "Challenges")), (6, ("🎯", "Dots")), (7, ("⚙", "Paramètres")), (9, ("📊", "Détails")), (10, ("⏱", "Session")), (11, ("🧮", "Calculateurs"))]:
+            btn = QPushButton(f"{icon}  {label}")
+            btn.setStyleSheet(
+                f"QPushButton{{background:transparent;color:{theme.TEXT};"
+                f"border:none;border-radius:6px;padding:8px 14px;"
+                f"font-size:10pt;}}"
+                f"QPushButton:hover{{background:{theme.BG_DARK};color:{theme.ORANGE};}}")
+            btn.clicked.connect(lambda _, i=idx: (self._more_menu.hide(), self._switch_tab(i)))
+            mm_lay.addWidget(btn)
+        self._more_menu.adjustSize()
+        self._more_menu.hide()
+
+        self._adjust_height(0)
+
+    def _toggle_more_menu(self):
+        if self._more_menu.isVisible():
+            self._more_menu.hide()
+            return
+        # Positionner au-dessus du bouton ⋯
+        btn = self._more_btn
+        pos = btn.mapToGlobal(btn.rect().topLeft())
+        self._more_menu.adjustSize()
+        pos.setY(pos.y() - self._more_menu.height() - 4)
+        pos.setX(pos.x() - self._more_menu.width() + btn.width())
+        self._more_menu.move(pos)
+        self._more_menu.show()
+        self._more_menu.raise_()
+
+    def _switch_tab(self, idx: int):
+        self.setUpdatesEnabled(False)
+        self._stack.setCurrentIndex(idx)
+        # Activer/désactiver le watcher clic droit du craft
+        try:
+            self._tabs[8].set_active(idx == 8)
+        except Exception:
+            pass
+        for i, btn in enumerate(self._nav_btns):
+            # bouton navbar normal : coché si son tab == idx ; bouton "Plus" : coché si tab secondaire
+            if i < len(self._nav_index):
+                btn.setChecked(self._nav_index[i] == idx)
+            else:
+                btn.setChecked(idx not in self._nav_index)
+        self._adjust_height(idx)
+        self.setUpdatesEnabled(True)
+
+    def _adjust_height(self, idx: int = 0):
+        self.setFixedWidth(self.WIDTH)
+        def do():
+            current = self._stack.currentWidget()
+            if current:
+                w = current
+                while w:
+                    w.updateGeometry()
+                    w = w.parentWidget()
+            self.setMinimumHeight(0)
+            self.setMaximumHeight(16777215)
+            self.adjustSize()
+        QTimer.singleShot(0, do)
+
+    # ── Stats ─────────────────────────────────────────────
+
+    def _refresh_stats(self):
+        # Stats de la map active uniquement
+        timer_tab = self._tabs[4]
+        current_map = getattr(timer_tab, '_current_map', None)
+        all_kills, all_rares = [], []
+        maps_to_scan = {}
+        if current_map and current_map in self.maps:
+            maps_to_scan = {current_map: self.maps[current_map]}
+        else:
+            maps_to_scan = self.maps
+
+        for md in maps_to_scan.values():
+            for gd in md['groups'].values():
+                all_kills.extend(gd.get('deaths', []))
+                all_rares.extend(gd.get('bambouto_times', []))
+
+        def fmt(times):
+            if not times: return "—"
+            avg = sum(times) / len(times)
+            m, s = divmod(int(avg), 60)
+            return f"moy {m:02d}:{s:02d} · {len(times)}×"
+
+        timer_tab.update_stats(f"Kill  {fmt(all_kills)}", f"Rare  {fmt(all_rares)}")
+        self._tabs[9].update_session_stats(self.maps)
+
+    # ── Callbacks Timer ───────────────────────────────────
+
+    def _on_kill(self, group_name: str, map_name: str):
+        gd = self.maps[map_name]['groups'][group_name]
+        model.record_kill(gd)
+        self._save()
+
+    def _on_bambouto(self, group_name: str, map_name: str):
+        gd = self.maps[map_name]['groups'][group_name]
+        model.record_bambouto(gd)
+        self._save()
+
+    def _on_reset_group(self, group_name: str, map_name: str):
+        gd = self.maps[map_name]['groups'][group_name]
+        model.reset_group(gd)
+        self._save()
+
+    def _on_add_map(self):
+        if len(self.maps) >= model.MAX_MAPS:
+            return
+        name = f"Map {len(self.maps)+1}"
+        self.maps[name] = model.new_map_data()
+        self._tabs[4].add_map(name, self.maps[name])
+        self._save()
+
+    def _on_delete_map(self):
+        if len(self.maps) <= 1:
+            return
+        name = self._tabs[4]._current_map
+        if name in self.maps:
+            del self.maps[name]
+            self._tabs[4].remove_map(name)
+            self._save()
+
+    def _on_reset_all(self):
+        for md in self.maps.values():
+            for gd in md['groups'].values():
+                model.clear_group(gd)
+        self._save()
+
+    def _on_clear_stats(self):
+        for md in self.maps.values():
+            for gd in md['groups'].values():
+                gd['deaths'] = []
+                gd['bambouto_times'] = []
+        self._save()
+
+    def _on_rename_map(self, old: str, new: str):
+        if new not in self.maps and old in self.maps:
+            # Renommer in-place pour garder la même référence dict
+            self.maps[new] = self.maps.pop(old)
+            self._tabs[4].rename_map(old, new)
+            self._save()
+
+    def _on_change_folder(self):
+        folder = QFileDialog.getExistingDirectory(
+            self, "Choisir le dossier", str(Path.home()))
+        if folder:
+            new_path = Path(folder) / 'dofus_timers.json'
+            model.set_data_file_path(new_path)
+            self.data_file = new_path
+            self.maps = model.load_maps(new_path)
+            self._tabs[7].update_path(str(new_path))
+

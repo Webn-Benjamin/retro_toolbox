@@ -1,0 +1,8 @@
+PySide6
+psutil
+pynput
+pyobjc-core
+pyobjc-framework-Quartz
+pyobjc-framework-AppKit
+pillow
+pytesseract
